@@ -36,6 +36,7 @@ Wrapper flags:
   --pick                 Force interactive picker even when default is set
   --dry-run              Print resolved env vars and command without launching
   --no-bare              Skip auto-injecting --bare for non-Anthropic backends
+  --which                Print which preset would be selected (no launch)
   --version, -v          Show version
   --help, -h             Show this help
 
@@ -80,6 +81,7 @@ function parseFlags(): {
   add: boolean;
   exportOnly: boolean;
   noBare: boolean;
+  which: boolean;
   pick: boolean;
   dryRun: boolean;
   help: boolean;
@@ -103,6 +105,7 @@ function parseFlags(): {
     add: false,
     exportOnly: false,
     noBare: false,
+    which: false,
     pick: false,
     dryRun: false,
     help: false,
@@ -194,6 +197,9 @@ function parseFlags(): {
         break;
       case "--no-bare":
         result.noBare = true;
+        break;
+      case "--which":
+        result.which = true;
         break;
       case "--dry-run":
         result.dryRun = true;
@@ -434,6 +440,11 @@ async function main(): Promise<void> {
 
   const localPath = hasLocalConfig();
   const preset = config.presets[presetName];
+
+  if (flags.which) {
+    process.stdout.write(`${presetName}\n`);
+    process.exit(0);
+  }
 
   let envVars: Record<string, string>;
   try {
