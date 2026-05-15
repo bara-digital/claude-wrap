@@ -35,6 +35,7 @@ Wrapper flags:
   --completion <shell>   Print shell completion script (zsh, bash, fish)
   --pick                 Force interactive picker even when default is set
   --dry-run              Print resolved env vars and command without launching
+  --no-bare              Skip auto-injecting --bare for non-Anthropic backends
   --version, -v          Show version
   --help, -h             Show this help
 
@@ -78,6 +79,7 @@ function parseFlags(): {
   removePreset?: string;
   add: boolean;
   exportOnly: boolean;
+  noBare: boolean;
   pick: boolean;
   dryRun: boolean;
   help: boolean;
@@ -100,6 +102,7 @@ function parseFlags(): {
     removePreset: undefined as string | undefined,
     add: false,
     exportOnly: false,
+    noBare: false,
     pick: false,
     dryRun: false,
     help: false,
@@ -188,6 +191,9 @@ function parseFlags(): {
         break;
       case "--pick":
         result.pick = true;
+        break;
+      case "--no-bare":
+        result.noBare = true;
         break;
       case "--dry-run":
         result.dryRun = true;
@@ -420,7 +426,7 @@ async function main(): Promise<void> {
 
   if (flags.dryRun) {
     process.stdout.write(
-      dryRun(presetName, envVars, config, flags.args),
+      dryRun(presetName, envVars, config, flags.args, flags.noBare),
     );
     process.exit(0);
   }
@@ -443,7 +449,7 @@ async function main(): Promise<void> {
     }
   }
 
-  execClaude(config, presetName, envVars, flags.args);
+  execClaude(config, presetName, envVars, flags.args, flags.noBare);
 }
 
 main().catch((err) => {

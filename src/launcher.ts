@@ -7,15 +7,16 @@ export function execClaude(
   presetName: string,
   envVars: Record<string, string>,
   args: string[],
+  noBare?: boolean,
 ): void {
   const claudeCmd = resolveClaudeBin(config.claude_bin);
   const cmd = claudeCmd[0];
   const finalArgs = claudeCmd.slice(1).concat(args);
 
-  // Auto-inject --bare for non-Anthropic backends
+  // Auto-inject --bare for non-Anthropic backends (unless --no-bare is set)
   const baseUrl = envVars.ANTHROPIC_BASE_URL ?? "";
   const isAnthropic = baseUrl.startsWith("https://api.anthropic.com");
-  if (!isAnthropic && !finalArgs.includes("--bare")) {
+  if (!isAnthropic && !noBare && !finalArgs.includes("--bare")) {
     finalArgs.unshift("--bare");
   }
 
@@ -60,13 +61,14 @@ export function dryRun(
   envVars: Record<string, string>,
   config: Config,
   args: string[],
+  noBare?: boolean,
 ): string {
   const claudeCmd = resolveClaudeBin(config.claude_bin);
   const finalArgs = claudeCmd.slice(1).concat(args);
 
   const baseUrl = envVars.ANTHROPIC_BASE_URL ?? "";
   const isAnthropic = baseUrl.startsWith("https://api.anthropic.com");
-  if (!isAnthropic && !finalArgs.includes("--bare")) {
+  if (!isAnthropic && !noBare && !finalArgs.includes("--bare")) {
     finalArgs.unshift("--bare");
   }
 
