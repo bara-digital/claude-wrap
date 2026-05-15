@@ -545,10 +545,11 @@ async function main(): Promise<void> {
   }
 
   const skipBare = flags.noBare || preset.bare === false;
+  const isAnthropic = preset.base_url.startsWith("https://api.anthropic.com");
 
   if (flags.dryRun) {
     process.stdout.write(
-      dryRun(presetName, envVars, config, flags.args, skipBare),
+      dryRun(presetName, envVars, config, flags.args, isAnthropic, skipBare),
     );
     process.exit(0);
   }
@@ -562,7 +563,7 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  execClaude(config, presetName, envVars, flags.args, skipBare);
+  execClaude(config, presetName, envVars, flags.args, isAnthropic, skipBare);
 }
 
 main().catch((err) => {

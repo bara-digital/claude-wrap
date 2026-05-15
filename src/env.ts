@@ -70,9 +70,13 @@ export function resolveEnv(preset: Preset): Record<string, string> {
   const dotEnv = loadDotEnv();
   const combinedEnv = { ...dotEnv, ...(process.env as Record<string, string>) };
 
-  const result: Record<string, string> = {
-    ANTHROPIC_BASE_URL: preset.base_url,
-  };
+  const result: Record<string, string> = {};
+
+  // Only set ANTHROPIC_BASE_URL for non-Anthropic endpoints.
+  // Setting it for the default URL changes how Claude Code resolves models.
+  if (!preset.base_url.startsWith("https://api.anthropic.com")) {
+    result.ANTHROPIC_BASE_URL = preset.base_url;
+  }
 
   if (preset.model) {
     result.ANTHROPIC_MODEL = preset.model;
