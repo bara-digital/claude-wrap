@@ -48,14 +48,16 @@ presets:
     expect(config.presets.anthropic.base_url).toBe("https://api.anthropic.com/v1");
   });
 
-  it("validates required fields — missing model", () => {
+  it("allows optional model field", () => {
     const globalPath = writeGlobalYaml(`
 presets:
-  bad:
+  good:
     base_url: https://example.com
 `);
     process.env.XDG_CONFIG_HOME = join(tmpDir, ".config");
-    expect(() => loadConfig()).toThrow("missing required field 'model'");
+    const config = loadConfig();
+    expect(config.presets.good).toBeDefined();
+    expect(config.presets.good.model).toBeUndefined();
   });
 
   it("validates required fields — missing base_url", () => {
