@@ -69,3 +69,4 @@ jobs:
         with:
           tag_name: v${{ needs.check.outputs.version }}
           files: dist/claude-wrap-${{ matrix.platform }}-${{ matrix.arch }}
+          generate_release_notes: true
