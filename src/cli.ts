@@ -1,9 +1,15 @@
-import { writeFileSync, existsSync } from "node:fs";
+import { writeFileSync, existsSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { loadConfig, getInitTemplate } from "./config";
+import { loadConfig, getInitTemplate, xdgConfigPath, setDefault } from "./config";
 import { pickPreset } from "./picker";
 import { resolveEnv, execClaude, dryRun } from "./launcher";
+import { runDoctor } from "./doctor";
+import { runUpdate } from "./update";
+import { runAdd } from "./add";
+import { generateCompletion } from "./completions";
+import { VERSION } from "./version";
 
 function printHelp(): void {
   const help = `claude-wrap — launch Claude Code with any LLM backend
@@ -17,6 +23,12 @@ Wrapper flags:
   --init                Generate template config at ~/.config/claude-wrap/presets.yaml
   --init --force        Overwrite existing config
   --list, -l            List all available presets (no launch)
+  --doctor              Validate all presets — checks base_url reachability, auth, $VAR resolution
+  --update              Check for and install newer version from GitHub Releases
+  --completion <shell>  Print shell completion script (zsh, bash, fish)
+  --config-edit         Open the presets config file in \$EDITOR
+  --add                 Interactive wizard to add a new preset
+  --pick                Force interactive picker even when default is set
   --pick                Force interactive picker even when default is set
   --dry-run             Print resolved env vars and command without launching
   --version, -v         Show version
@@ -43,9 +55,7 @@ Examples:
 }
 
 function printVersion(): void {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const pkg = require("../package.json");
-  process.stdout.write(`${pkg.version}\n`);
+  process.stdout.write(`${VERSION}\n`);
   process.exit(0);
 }
 
@@ -55,6 +65,12 @@ function parseFlags(): {
   init: boolean;
   initForce: boolean;
   list: boolean;
+  doctor: boolean;
+  update: boolean;
+  completion?: string;
+  configEdit: boolean;
+  setDefaultPreset?: string;
+  add: boolean;
   pick: boolean;
   dryRun: boolean;
   help: boolean;
@@ -68,6 +84,12 @@ function parseFlags(): {
     init: false,
     initForce: false,
     list: false,
+    doctor: false,
+    update: false,
+    completion: undefined as string | undefined,
+    configEdit: false,
+    setDefaultPreset: undefined as string | undefined,
+    add: false,
     pick: false,
     dryRun: false,
     help: false,
@@ -108,6 +130,34 @@ function parseFlags(): {
       case "--force":
         result.initForce = true;
         break;
+      case "--doctor":
+        result.doctor = true;
+        break;
+      case "--update":
+        result.update = true;
+        break;
+      case "--completion":
+        i++;
+        if (i >= args.length) {
+          process.stderr.write("claude-wrap: --completion requires a shell name (zsh, bash, fish)\n");
+          process.exit(1);
+        }
+        result.completion = args[i];
+        break;
+      case "--config-edit":
+        result.configEdit = true;
+        break;
+      case "--add":
+        result.add = true;
+        break;
+      case "--set-default":
+        i++;
+        if (i >= args.length) {
+          process.stderr.write("claude-wrap: --set-default requires a preset name\n");
+          process.exit(1);
+        }
+        result.setDefaultPreset = args[i];
+        break;
       case "--list":
       case "-l":
         result.list = true;
@@ -139,6 +189,47 @@ function parseFlags(): {
   }
 
   return result;
+}
+
+function doConfigEdit(explicitPath?: string): void {
+  const path = explicitPath ?? xdgConfigPath();
+
+  if (!existsSync(path)) {
+    process.stderr.write(`Config not found at ${path}\n`);
+    process.stderr.write(`Run 'claude-wrap --init' to create one.\n`);
+    process.exit(1);
+  }
+
+  const editor = process.env.EDITOR || process.env.VISUAL || "vim";
+
+  const child = spawnSync(editor, [path], { stdio: "inherit" });
+  process.exit(child.status ?? 0);
+}
+
+function doSetDefault(name: string, explicitPath?: string): void {
+  const path = explicitPath ?? xdgConfigPath();
+
+  if (!existsSync(path)) {
+    process.stderr.write(`Config not found at ${path}\n`);
+    process.stderr.write(`Run 'claude-wrap --init' to create one.\n`);
+    process.exit(1);
+  }
+
+  const config = loadConfig(explicitPath);
+  const presets = Object.keys(config.presets);
+
+  if (!presets.includes(name)) {
+    process.stderr.write(
+      `Preset '${name}' not found. Available: ${presets.join(", ")}\n`,
+    );
+    process.exit(1);
+  }
+
+  const raw = readFileSync(path, "utf8");
+  const updated = setDefault(raw, name, presets);
+  writeFileSync(path, updated, "utf8");
+  process.stdout.write(`Default preset set to '${name}'\n`);
+  process.exit(0);
 }
 
 function doInit(force: boolean): void {
@@ -190,6 +281,27 @@ async function main(): Promise<void> {
   if (flags.help) printHelp();
   if (flags.version) printVersion();
 
+  if (flags.update) {
+    await runUpdate();
+  }
+
+  if (flags.completion) {
+    process.stdout.write(generateCompletion(flags.completion));
+    process.exit(0);
+  }
+
+  if (flags.configEdit) {
+    doConfigEdit(flags.config);
+  }
+
+  if (flags.setDefaultPreset) {
+    doSetDefault(flags.setDefaultPreset, flags.config);
+  }
+
+  if (flags.add) {
+    await runAdd(flags.config);
+  }
+
   if (flags.init) {
     doInit(flags.initForce);
   }
@@ -198,6 +310,10 @@ async function main(): Promise<void> {
 
   if (flags.list) {
     doList(config);
+  }
+
+  if (flags.doctor) {
+    await runDoctor(config);
   }
 
   const presetName = await pickPreset(config, flags.pick, flags.preset);

@@ -17,7 +17,7 @@ export interface Config {
   presets: Record<string, Preset>;
 }
 
-function xdgConfigPath(): string {
+export function xdgConfigPath(): string {
   const xdg =
     process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
   return join(xdg, "claude-wrap", "presets.yaml");
@@ -229,4 +229,38 @@ presets:
   #   base_url: http://localhost:4000
   #   # no api_key needed for local Ollama
 `;
+}
+
+export function setDefault(
+  rawYaml: string,
+  presetName: string,
+  allPresets: string[],
+): string {
+  if (!allPresets.includes(presetName)) {
+    throw new Error(
+      `Preset '${presetName}' not found. Available: ${allPresets.join(", ")}`,
+    );
+  }
+
+  const lines = rawYaml.split("\n");
+  let found = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (/^\s*#?\s*default:/.test(lines[i])) {
+      lines[i] = `default: ${presetName}`;
+      found = true;
+      break;
+    }
+  }
+
+  if (!found) {
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim() === "presets:") {
+        lines.splice(i, 0, "", `default: ${presetName}`);
+        break;
+      }
+    }
+  }
+
+  return lines.join("\n");
 }

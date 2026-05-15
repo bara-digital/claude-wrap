@@ -100,7 +100,14 @@ export function execClaude(
 ): void {
   const claudeCmd = resolveClaudeBin(config.claude_bin);
   const cmd = claudeCmd[0];
-  const cmdArgs = claudeCmd.slice(1).concat(args);
+  const finalArgs = claudeCmd.slice(1).concat(args);
+
+  // Auto-inject --bare for non-Anthropic backends
+  const baseUrl = envVars.ANTHROPIC_BASE_URL ?? "";
+  const isAnthropic = baseUrl.startsWith("https://api.anthropic.com");
+  if (!isAnthropic && !finalArgs.includes("--bare")) {
+    finalArgs.unshift("--bare");
+  }
 
   // Verify the binary exists before we detach
   const check = spawnSync("which", [cmd], { stdio: "pipe" });
@@ -115,17 +122,17 @@ export function execClaude(
   } catch {
     // stdin may not be a TTY
   }
-  process.stdin.resume();
 
-  // Drain any leftover input (e.g. buffered Enter from picker)
-  process.stdin.pause();
+  // Drain leftover input (e.g. buffered Enter from picker), then keep stdin
+  // PAUSED so Bun never competes with claude for keystrokes on fd 0
+  process.stdin.resume();
   let chunk: string | null;
   while ((chunk = process.stdin.read() as string | null) !== null) {
     // discard
   }
-  process.stdin.resume();
+  process.stdin.pause();
 
-  const child = spawn(cmd, cmdArgs, {
+  const child = spawn(cmd, finalArgs, {
     env: { ...process.env, ...envVars },
     stdio: "inherit",
   });
@@ -145,10 +152,18 @@ export function dryRun(
   args: string[],
 ): string {
   const claudeCmd = resolveClaudeBin(config.claude_bin);
+  const finalArgs = claudeCmd.slice(1).concat(args);
+
+  const baseUrl = envVars.ANTHROPIC_BASE_URL ?? "";
+  const isAnthropic = baseUrl.startsWith("https://api.anthropic.com");
+  if (!isAnthropic && !finalArgs.includes("--bare")) {
+    finalArgs.unshift("--bare");
+  }
+
   const lines: string[] = [
     `# claude-wrap --dry-run`,
     `# Preset: ${presetName}`,
-    `# Command: ${claudeCmd.join(" ")} ${args.join(" ")}`,
+    `# Command: ${claudeCmd[0]} ${finalArgs.join(" ")}`,
     "",
   ];
 
