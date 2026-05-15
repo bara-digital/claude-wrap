@@ -314,4 +314,4 @@ PRs welcome. Please run `bun run typecheck && bun test` before pushing.
 
 ## License
 
-MIT © Dedi Suhanda
+MIT © Bara Digital

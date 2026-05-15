@@ -4,7 +4,7 @@
   "description": "Multi-model launcher for Claude Code — pick any LLM backend via presets",
   "type": "module",
   "license": "MIT",
-  "author": "Dedi Suhanda",
+  "author": "Bara Digital",
   "repository": "github.com/bara-digital/claude-wrap",
   "homepage": "https://github.com/bara-digital/claude-wrap#readme",
   "bugs": "https://github.com/bara-digital/claude-wrap/issues",
