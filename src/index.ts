@@ -2,7 +2,7 @@ import { writeFileSync, existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { loadConfig, getInitTemplate, xdgConfigPath, setDefault } from "./config";
+import { loadConfig, getInitTemplate, xdgConfigPath, setDefault, removePreset } from "./config";
 import { pickPreset } from "./picker";
 import { execClaude, dryRun } from "./launcher";
 import { resolveEnv } from "./env";
@@ -19,21 +19,23 @@ Usage:
   claude-wrap [wrapper-flags] [-- claude-args...]
 
 Wrapper flags:
-  --preset, -p <name>   Skip picker, use named preset
-  --config, -c <path>   Explicit config file path
-  --init                Generate template config at ~/.config/claude-wrap/presets.yaml
-  --init --force        Overwrite existing config
-  --list, -l            List all available presets (no launch)
-  --doctor              Validate all presets — checks base_url reachability, auth, $VAR resolution
-  --update              Check for and install newer version from GitHub Releases
-  --completion <shell>  Print shell completion script (zsh, bash, fish)
-  --config-edit         Open the presets config file in \$EDITOR
-  --add                 Interactive wizard to add a new preset
-  --pick                Force interactive picker even when default is set
-  --pick                Force interactive picker even when default is set
-  --dry-run             Print resolved env vars and command without launching
-  --version, -v         Show version
-  --help, -h            Show this help
+  --preset, -p <name>    Skip picker, use named preset
+  --config, -c <path>    Explicit config file path
+  --init                 Generate template config at ~/.config/claude-wrap/presets.yaml
+  --init --force         Overwrite existing config
+  --list, -l             List all available presets (no launch)
+  --add                  Interactive wizard to add a new preset
+  --remove <name>        Delete a preset from config
+  --set-default <name>   Set the default preset from CLI
+  --config-edit          Open the presets config file in \$EDITOR
+  --doctor               Validate all presets — base_url reachability, auth, \$VAR resolution
+  --update               Self-update binary from GitHub Releases
+  --export               Print resolved env vars as shell export statements
+  --completion <shell>   Print shell completion script (zsh, bash, fish)
+  --pick                 Force interactive picker even when default is set
+  --dry-run              Print resolved env vars and command without launching
+  --version, -v          Show version
+  --help, -h             Show this help
 
 All other arguments are forwarded to claude.
 
@@ -71,7 +73,9 @@ function parseFlags(): {
   completion?: string;
   configEdit: boolean;
   setDefaultPreset?: string;
+  removePreset?: string;
   add: boolean;
+  exportOnly: boolean;
   pick: boolean;
   dryRun: boolean;
   help: boolean;
@@ -90,7 +94,9 @@ function parseFlags(): {
     completion: undefined as string | undefined,
     configEdit: false,
     setDefaultPreset: undefined as string | undefined,
+    removePreset: undefined as string | undefined,
     add: false,
+    exportOnly: false,
     pick: false,
     dryRun: false,
     help: false,
@@ -150,6 +156,17 @@ function parseFlags(): {
         break;
       case "--add":
         result.add = true;
+        break;
+      case "--remove":
+        i++;
+        if (i >= args.length) {
+          process.stderr.write("claude-wrap: --remove requires a preset name\n");
+          process.exit(1);
+        }
+        result.removePreset = args[i];
+        break;
+      case "--export":
+        result.exportOnly = true;
         break;
       case "--set-default":
         i++;
@@ -233,6 +250,24 @@ function doSetDefault(name: string, explicitPath?: string): void {
   process.exit(0);
 }
 
+function doRemove(name: string, explicitPath?: string): void {
+  const path = explicitPath ?? xdgConfigPath();
+
+  if (!existsSync(path)) {
+    process.stderr.write(`Config not found at ${path}\n`);
+    process.exit(1);
+  }
+
+  const config = loadConfig(explicitPath);
+  const presets = Object.keys(config.presets);
+
+  const raw = readFileSync(path, "utf8");
+  const updated = removePreset(raw, name, presets);
+  writeFileSync(path, updated, "utf8");
+  process.stdout.write(`Preset '${name}' removed.\n`);
+  process.exit(0);
+}
+
 function doInit(force: boolean): void {
   const xdg =
     process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
@@ -299,6 +334,10 @@ async function main(): Promise<void> {
     doSetDefault(flags.setDefaultPreset, flags.config);
   }
 
+  if (flags.removePreset) {
+    doRemove(flags.removePreset, flags.config);
+  }
+
   if (flags.add) {
     await runAdd(flags.config);
   }
@@ -337,6 +376,13 @@ async function main(): Promise<void> {
     process.stdout.write(
       dryRun(presetName, envVars, config, flags.args),
     );
+    process.exit(0);
+  }
+
+  if (flags.exportOnly) {
+    for (const [key, value] of Object.entries(envVars)) {
+      process.stdout.write(`export ${key}='${value}'\n`);
+    }
     process.exit(0);
   }
 

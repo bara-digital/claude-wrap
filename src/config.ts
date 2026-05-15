@@ -1,4 +1,4 @@
-import { parse } from "yaml";
+import { parse, stringify } from "yaml";
 import { readFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { homedir } from "node:os";
@@ -279,4 +279,26 @@ export function setDefault(
   }
 
   return lines.join("\n");
+}
+
+export function removePreset(
+  rawYaml: string,
+  presetName: string,
+  allPresets: string[],
+): string {
+  if (!allPresets.includes(presetName)) {
+    throw new Error(
+      `Preset '${presetName}' not found. Available: ${allPresets.join(", ")}`,
+    );
+  }
+
+  const parsed = parse(rawYaml) as Record<string, unknown>;
+  const presets = parsed.presets as Record<string, unknown>;
+  delete presets[presetName];
+
+  if (parsed.default === presetName) {
+    delete parsed.default;
+  }
+
+  return stringify(parsed, null, 2) + "\n";
 }
