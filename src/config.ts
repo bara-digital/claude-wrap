@@ -24,6 +24,10 @@ export function xdgConfigPath(): string {
   return join(xdg, "claude-wrap", "presets.yaml");
 }
 
+export function hasLocalConfig(): string | null {
+  return walkUp(process.cwd(), ".claude-wrap.yaml");
+}
+
 function walkUp(
   start: string,
   filename: string,

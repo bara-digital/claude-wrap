@@ -2,7 +2,7 @@ import { writeFileSync, existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { loadConfig, getInitTemplate, xdgConfigPath, setDefault, removePreset } from "./config";
+import { loadConfig, getInitTemplate, xdgConfigPath, setDefault, removePreset, hasLocalConfig } from "./config";
 import { pickPreset } from "./picker";
 import { execClaude, dryRun } from "./launcher";
 import { resolveEnv } from "./env";
@@ -348,10 +348,29 @@ function doList(config: ReturnType<typeof loadConfig>): void {
     process.exit(0);
   }
 
+  // Determine which presets come from local config
+  const localPath = hasLocalConfig();
+  let localPresets: Set<string> = new Set();
+  if (localPath) {
+    try {
+      const localRaw = readFileSync(localPath, "utf8");
+      const { parse: yamlParse } = require("yaml");
+      const localParsed = yamlParse(localRaw);
+      if (localParsed?.presets) {
+        localPresets = new Set(Object.keys(localParsed.presets));
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }
+
   const def = config.default;
   for (const name of names) {
     const preset = config.presets[name];
-    const marker = name === def ? " [default]" : "";
+    const markers: string[] = [];
+    if (name === def) markers.push("default");
+    if (localPresets.has(name)) markers.push("local");
+    const marker = markers.length > 0 ? ` [${markers.join(", ")}]` : "";
     process.stdout.write(
       `  ${name}${marker}\n    model:    ${preset.model}\n    base_url: ${preset.base_url}\n`,
     );
@@ -413,6 +432,7 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
+  const localPath = hasLocalConfig();
   const preset = config.presets[presetName];
 
   let envVars: Record<string, string>;
@@ -447,6 +467,10 @@ async function main(): Promise<void> {
     if (loginResult.status !== 0) {
       process.exit(loginResult.status ?? 1);
     }
+  }
+
+  if (localPath) {
+    process.stderr.write(`[claude-wrap] using project config: ${localPath}\n`);
   }
 
   execClaude(config, presetName, envVars, flags.args, flags.noBare);
