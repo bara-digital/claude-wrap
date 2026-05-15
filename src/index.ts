@@ -29,6 +29,7 @@ Wrapper flags:
   --list, -l             List all available presets (no launch)
   --add                  Interactive wizard to add a new preset
   --remove <name>        Delete a preset from config
+  --edit <name>          Open config at the preset location in \$EDITOR
   --set-default <name>   Set the default preset from CLI
   --config-edit          Open the presets config file in \$EDITOR
   --doctor               Validate all presets — base_url reachability, auth, \$VAR resolution
@@ -87,6 +88,7 @@ function parseFlags(): {
   exportOnly: boolean;
   noBare: boolean;
   session?: string;
+  editPreset?: string;
   which: boolean;
   stats: boolean;
   info: boolean;
@@ -117,6 +119,7 @@ function parseFlags(): {
     which: false,
     stats: false,
     info: false,
+    editPreset: undefined as string | undefined,
     pick: false,
     dryRun: false,
     help: false,
@@ -217,6 +220,14 @@ function parseFlags(): {
         break;
       case "--info":
         result.info = true;
+        break;
+      case "--edit":
+        i++;
+        if (i >= args.length) {
+          process.stderr.write("claude-wrap: --edit requires a preset name\n");
+          process.exit(1);
+        }
+        result.editPreset = args[i];
         break;
       case "--session":
         i++;
@@ -325,6 +336,41 @@ function doRemove(name: string, explicitPath?: string): void {
   writeFileSync(path, updated, "utf8");
   process.stdout.write(`Preset '${name}' removed.\n`);
   process.exit(0);
+}
+
+function doEdit(name: string, explicitPath?: string): void {
+  const path = explicitPath ?? xdgConfigPath();
+
+  if (!existsSync(path)) {
+    process.stderr.write(`Config not found at ${path}\n`);
+    process.exit(1);
+  }
+
+  const config = loadConfig(explicitPath);
+  if (!config.presets[name]) {
+    process.stderr.write(
+      `Preset '${name}' not found. Available: ${Object.keys(config.presets).join(", ")}\n`,
+    );
+    process.exit(1);
+  }
+
+  // Find line number of the preset in the config file
+  const raw = readFileSync(path, "utf8");
+  const lines = raw.split("\n");
+  let lineno = 1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trimStart().startsWith(`${name}:`)) {
+      lineno = i + 1;
+      break;
+    }
+  }
+
+  const editor = process.env.EDITOR || process.env.VISUAL || "vim";
+  const isVim = /(?:^|\/)([gn]?vim?|vi)$/.test(editor);
+  const child = isVim
+    ? spawnSync(editor, [`+${lineno}`, path], { stdio: "inherit" })
+    : spawnSync(editor, [path], { stdio: "inherit" });
+  process.exit(child.status ?? 0);
 }
 
 function doInit(force: boolean, local?: boolean): void {
@@ -443,6 +489,10 @@ async function main(): Promise<void> {
 
   if (flags.removePreset) {
     doRemove(flags.removePreset, flags.config);
+  }
+
+  if (flags.editPreset) {
+    doEdit(flags.editPreset, flags.config);
   }
 
   if (flags.add) {
