@@ -71,9 +71,12 @@ export function resolveEnv(preset: Preset): Record<string, string> {
   const combinedEnv = { ...dotEnv, ...(process.env as Record<string, string>) };
 
   const result: Record<string, string> = {
-    ANTHROPIC_MODEL: preset.model,
     ANTHROPIC_BASE_URL: preset.base_url,
   };
+
+  if (preset.model) {
+    result.ANTHROPIC_MODEL = preset.model;
+  }
 
   if (preset.api_key) {
     const key = resolveVar(preset.api_key, combinedEnv);

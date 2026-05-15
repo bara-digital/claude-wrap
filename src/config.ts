@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 
 export interface Preset {
   description?: string;
-  model: string;
+  model?: string;
   base_url: string;
   api_key?: string;
   login?: boolean;
@@ -78,8 +78,8 @@ function validateConfig(raw: Record<string, unknown>, path: string): Config {
     }
     const p = value as Record<string, unknown>;
 
-    if (!p.model || typeof p.model !== "string") {
-      errors.push(`presets.${name}: missing required field 'model'`);
+    if (p.model !== undefined && typeof p.model !== "string") {
+      errors.push(`presets.${name}: 'model' must be a string`);
     }
     if (!p.base_url || typeof p.base_url !== "string") {
       errors.push(`presets.${name}: missing required field 'base_url'`);
@@ -110,9 +110,9 @@ function validateConfig(raw: Record<string, unknown>, path: string): Config {
 
     if (errors.length === 0 || !errors.some((e) => e.startsWith(`presets.${name}:`))) {
       const preset: Preset = {
-        model: p.model as string,
         base_url: p.base_url as string,
       };
+      if (p.model !== undefined) preset.model = p.model as string;
       if (p.description !== undefined) preset.description = p.description as string;
       if (p.api_key !== undefined) preset.api_key = p.api_key as string;
       if (p.login !== undefined) preset.login = p.login as boolean;
@@ -248,8 +248,7 @@ default: anthropic
 presets:
   # Anthropic via subscription (OAuth / login)
   anthropic:
-    description: "Claude Sonnet via Anthropic subscription"
-    model: claude-sonnet-4-20250514
+    description: "Claude via Anthropic subscription"
     base_url: https://api.anthropic.com/v1
     login: true
 

@@ -49,12 +49,8 @@ export async function runAdd(explicitPath?: string): Promise<void> {
   }
 
   const model = await text({
-    message: "Model:",
-    placeholder: "gpt-4o",
-    validate(value) {
-      if (!value.trim()) return "Model is required";
-      return;
-    },
+    message: "Model (optional — leave empty to use Claude's default):",
+    placeholder: "claude-sonnet-4-20250514",
   });
 
   if (isCancel(model)) {
@@ -144,9 +140,9 @@ export async function runAdd(explicitPath?: string): Promise<void> {
 
   // Build preset entry
   const preset: Record<string, unknown> = {
-    model,
     base_url: baseUrl,
   };
+  if (model) preset.model = model;
   if (desc) preset.description = desc;
   if (apiKey) preset.api_key = apiKey;
   if (Object.keys(extraEnv).length > 0) preset.extra_env = extraEnv;
