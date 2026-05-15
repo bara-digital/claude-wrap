@@ -9,6 +9,7 @@ export interface Preset {
   base_url: string;
   api_key?: string;
   login?: boolean;
+  bare?: boolean;
   extra_env?: Record<string, string>;
 }
 
@@ -92,6 +93,9 @@ function validateConfig(raw: Record<string, unknown>, path: string): Config {
     if (p.login !== undefined && typeof p.login !== "boolean") {
       errors.push(`presets.${name}: 'login' must be a boolean`);
     }
+    if (p.bare !== undefined && typeof p.bare !== "boolean") {
+      errors.push(`presets.${name}: 'bare' must be a boolean`);
+    }
     if (p.extra_env !== undefined) {
       if (typeof p.extra_env !== "object" || Array.isArray(p.extra_env)) {
         errors.push(`presets.${name}: 'extra_env' must be a mapping`);
@@ -112,6 +116,7 @@ function validateConfig(raw: Record<string, unknown>, path: string): Config {
       if (p.description !== undefined) preset.description = p.description as string;
       if (p.api_key !== undefined) preset.api_key = p.api_key as string;
       if (p.login !== undefined) preset.login = p.login as boolean;
+      if (p.bare !== undefined) preset.bare = p.bare as boolean;
       if (p.extra_env !== undefined) preset.extra_env = p.extra_env as Record<string, string>;
       presets[name] = preset;
     }

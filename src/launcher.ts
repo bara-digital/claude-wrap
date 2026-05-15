@@ -13,7 +13,7 @@ export function execClaude(
   const cmd = claudeCmd[0];
   const finalArgs = claudeCmd.slice(1).concat(args);
 
-  // Auto-inject --bare for non-Anthropic backends (unless --no-bare is set)
+  // Auto-inject --bare for non-Anthropic backends (unless overridden)
   const baseUrl = envVars.ANTHROPIC_BASE_URL ?? "";
   const isAnthropic = baseUrl.startsWith("https://api.anthropic.com");
   if (!isAnthropic && !noBare && !finalArgs.includes("--bare")) {

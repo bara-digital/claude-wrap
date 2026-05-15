@@ -495,8 +495,9 @@ async function main(): Promise<void> {
   }
 
   if (flags.dryRun) {
+    const skipBareDry = flags.noBare || preset.bare === false;
     process.stdout.write(
-      dryRun(presetName, envVars, config, flags.args, flags.noBare),
+      dryRun(presetName, envVars, config, flags.args, skipBareDry),
     );
     process.exit(0);
   }
@@ -525,7 +526,9 @@ async function main(): Promise<void> {
 
   recordLaunch(presetName);
 
-  execClaude(config, presetName, envVars, flags.args, flags.noBare);
+  const skipBare = flags.noBare || preset.bare === false;
+
+  execClaude(config, presetName, envVars, flags.args, skipBare);
 }
 
 main().catch((err) => {
