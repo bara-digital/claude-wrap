@@ -24,7 +24,6 @@ async function checkEndpoint(
     const headers: Record<string, string> = {};
     if (authToken) {
       headers["x-api-key"] = authToken;
-      headers["authorization"] = `Bearer ${authToken}`;
     }
     const res = await fetch(url, {
       method: "GET",
@@ -95,7 +94,7 @@ export async function runDoctor(config: Config): Promise<void> {
     process.stdout.write(`    vars:    \x1b[32m✓\x1b[0m all resolved\n`);
 
     if (hasAuth) {
-      const keyPreview = authToken.slice(0, 7) + "...";
+      const keyPreview = authToken.slice(0, 4) + "...";
       process.stdout.write(`    auth:    \x1b[32m✓\x1b[0m (${keyPreview})\n`);
     } else {
       process.stdout.write(`    auth:    ⚠ no api_key set\n`);

@@ -197,8 +197,40 @@ export function resolveClaudeBin(
   claudeBin: string | string[] | undefined,
 ): string[] {
   if (claudeBin === undefined) return ["claude"];
-  if (typeof claudeBin === "string") return [claudeBin];
+  if (typeof claudeBin === "string") {
+    validateBinName(claudeBin);
+    return [claudeBin];
+  }
+  if (!Array.isArray(claudeBin) || claudeBin.length === 0) return ["claude"];
+  validateBinName(claudeBin[0]);
   return claudeBin;
+}
+
+const ALLOWED_BINS = ["claude", "npx", "node", "bun"];
+const BLOCKED_BIN_PREFIXES = ["/tmp", "/var/tmp", "/dev"];
+
+function validateBinName(cmd: string): void {
+  if (!cmd) throw new Error("claude_bin: command cannot be empty");
+
+  // If it looks like a path, reject suspicious prefixes
+  if (cmd.includes("/")) {
+    for (const prefix of BLOCKED_BIN_PREFIXES) {
+      if (cmd.startsWith(prefix)) {
+        throw new Error(
+          `claude_bin: binary path '${cmd}' is not allowed. ` +
+            `Use a system-installed binary in /usr/local/bin or similar.`,
+        );
+      }
+    }
+    return;
+  }
+
+  // Simple command name — allowlist
+  if (!ALLOWED_BINS.includes(cmd)) {
+    throw new Error(
+      `claude_bin: '${cmd}' is not an allowed binary. Allowed: ${ALLOWED_BINS.join(", ")}`,
+    );
+  }
 }
 
 export function getInitTemplate(): string {

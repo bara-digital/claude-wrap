@@ -83,9 +83,34 @@ export function resolveEnv(preset: Preset): Record<string, string> {
 
   if (preset.extra_env) {
     for (const [key, value] of Object.entries(preset.extra_env)) {
+      if (BLOCKED_ENV_VARS.has(key.toUpperCase())) {
+        throw new Error(
+          `Cannot override protected environment variable: ${key}`,
+        );
+      }
       result[key] = resolveVar(value, combinedEnv);
     }
   }
 
   return result;
 }
+
+const BLOCKED_ENV_VARS = new Set([
+  "PATH",
+  "LD_PRELOAD",
+  "LD_LIBRARY_PATH",
+  "DYLD_INSERT_LIBRARIES",
+  "DYLD_LIBRARY_PATH",
+  "HOME",
+  "USER",
+  "LOGNAME",
+  "SHELL",
+  "EDITOR",
+  "VISUAL",
+  "PWD",
+  "TMPDIR",
+  "XDG_CONFIG_HOME",
+  "XDG_STATE_HOME",
+  "XDG_DATA_HOME",
+  "XDG_CACHE_HOME",
+]);

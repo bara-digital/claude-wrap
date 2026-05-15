@@ -80,7 +80,9 @@ export function dryRun(
   ];
 
   for (const [key, value] of Object.entries(envVars)) {
-    lines.push(`export ${key}='${value}'`);
+    const safeKey = key.replace(/'/g, "'\\''");
+    const safeValue = value.replace(/'/g, "'\\''");
+    lines.push(`export ${safeKey}='${safeValue}'`);
   }
 
   return lines.join("\n");

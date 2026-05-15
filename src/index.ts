@@ -555,7 +555,9 @@ async function main(): Promise<void> {
 
   if (flags.exportOnly) {
     for (const [key, value] of Object.entries(envVars)) {
-      process.stdout.write(`export ${key}='${value}'\n`);
+      const safeKey = key.replace(/'/g, "'\\''");
+      const safeValue = value.replace(/'/g, "'\\''");
+      process.stdout.write(`export ${safeKey}='${safeValue}'\n`);
     }
     process.exit(0);
   }

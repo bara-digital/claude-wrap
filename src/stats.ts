@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
@@ -25,6 +25,7 @@ function saveStats(stats: Record<string, number>): void {
     mkdirSync(dir, { recursive: true });
   }
   writeFileSync(path, JSON.stringify(stats, null, 2) + "\n", "utf8");
+  chmodSync(path, 0o600);
 }
 
 export function recordLaunch(presetName: string): void {
