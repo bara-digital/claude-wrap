@@ -339,6 +339,17 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
+  // If preset has login: true, run claude login first (Anthropic OAuth flow)
+  if (preset.login) {
+    const loginResult = spawnSync("claude", ["login"], {
+      stdio: "inherit",
+      env: { ...process.env, ...envVars },
+    });
+    if (loginResult.status !== 0) {
+      process.exit(loginResult.status ?? 1);
+    }
+  }
+
   execClaude(config, presetName, envVars, flags.args);
 }
 

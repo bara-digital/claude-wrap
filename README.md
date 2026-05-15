@@ -88,6 +88,7 @@ presets:
     model: <model-id>             # REQUIRED → ANTHROPIC_MODEL
     base_url: <api-endpoint>      # REQUIRED → ANTHROPIC_BASE_URL
     api_key: $MY_API_KEY          # optional → ANTHROPIC_API_KEY + ANTHROPIC_AUTH_TOKEN
+    login: true                   # optional → run claude login before launch
     extra_env:                    # optional — additional env vars passed to claude
       CUSTOM_VAR: value
       ANOTHER: $EXPANDED_VAR
@@ -201,15 +202,15 @@ claude-wrap --completion fish > ~/.config/fish/completions/claude-wrap.fish
 
 ## Example presets
 
-### Anthropic (direct)
+### Anthropic (subscription / OAuth)
 
 ```yaml
 presets:
   anthropic:
-    description: "Claude Sonnet via Anthropic API"
+    description: "Claude Sonnet via Anthropic subscription"
     model: claude-sonnet-4-20250514
     base_url: https://api.anthropic.com/v1
-    api_key: $ANTHROPIC_API_KEY
+    login: true           # runs claude login before launch
 ```
 
 ### DeepSeek

@@ -8,6 +8,7 @@ export interface Preset {
   model: string;
   base_url: string;
   api_key?: string;
+  login?: boolean;
   extra_env?: Record<string, string>;
 }
 
@@ -84,6 +85,9 @@ function validateConfig(raw: Record<string, unknown>, path: string): Config {
     if (p.api_key !== undefined && typeof p.api_key !== "string") {
       errors.push(`presets.${name}: 'api_key' must be a string`);
     }
+    if (p.login !== undefined && typeof p.login !== "boolean") {
+      errors.push(`presets.${name}: 'login' must be a boolean`);
+    }
     if (p.extra_env !== undefined) {
       if (typeof p.extra_env !== "object" || Array.isArray(p.extra_env)) {
         errors.push(`presets.${name}: 'extra_env' must be a mapping`);
@@ -103,6 +107,7 @@ function validateConfig(raw: Record<string, unknown>, path: string): Config {
       };
       if (p.description !== undefined) preset.description = p.description as string;
       if (p.api_key !== undefined) preset.api_key = p.api_key as string;
+      if (p.login !== undefined) preset.login = p.login as boolean;
       if (p.extra_env !== undefined) preset.extra_env = p.extra_env as Record<string, string>;
       presets[name] = preset;
     }
@@ -191,8 +196,7 @@ export function getInitTemplate(): string {
   return `# claude-wrap preset configuration
 # See all options: https://github.com/bara-digital/claude-wrap
 
-# Optional: default preset (skips the picker)
-# default: anthropic
+default: anthropic
 
 # Optional: override path to the claude binary
 # claude_bin: /opt/homebrew/bin/claude
@@ -201,33 +205,45 @@ export function getInitTemplate(): string {
 #   - "@anthropic-ai/claude-code"
 
 presets:
-  # Example: Anthropic (direct — no proxy needed)
+  # Anthropic via subscription (OAuth / login)
   anthropic:
-    description: "Claude Sonnet via Anthropic API"
+    description: "Claude Sonnet via Anthropic subscription"
     model: claude-sonnet-4-20250514
     base_url: https://api.anthropic.com/v1
-    api_key: $ANTHROPIC_API_KEY
+    login: true
 
-  # Example: OpenAI via OpenRouter (proxy translates Anthropic API → OpenAI)
+  # DeepSeek via Anthropic-compatible API
+  # deepseek:
+  #   description: "DeepSeek V4"
+  #   model: deepseek-v4-pro[1m]
+  #   base_url: https://api.deepseek.com/anthropic
+  #   api_key: $DEEPSEEK_API_KEY
+  #   extra_env:
+  #     ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-v4-pro[1m]"
+  #     ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-v4-pro[1m]"
+  #     ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-v4-flash[1m]"
+  #     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+
+  # OpenAI via OpenRouter
   # openai:
   #   description: "GPT-4o via OpenRouter"
-  #   model: gpt-4o
+  #   model: openai/gpt-4o
   #   base_url: https://openrouter.ai/api/v1
   #   api_key: $OPENROUTER_API_KEY
 
-  # Example: Groq via local LiteLLM proxy
+  # Groq via local LiteLLM proxy
   # groq:
   #   description: "Llama 3.3 via Groq + LiteLLM"
   #   model: groq/llama-3.3-70b-versatile
-  #   base_url: http://localhost:4000
+  #   base_url: http://localhost:4000/v1
   #   api_key: $GROQ_API_KEY
 
-  # Example: Ollama (local)
+  # Ollama (local)
   # ollama:
   #   description: "Local Ollama models via LiteLLM"
   #   model: ollama/llama3
-  #   base_url: http://localhost:4000
-  #   # no api_key needed for local Ollama
+  #   base_url: http://localhost:4000/v1
+  #   # no api_key needed
 `;
 }
 
