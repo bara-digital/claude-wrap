@@ -42,8 +42,18 @@ describe("resolveEnv", () => {
     };
     const env = resolveEnv(preset);
     expect(env.ANTHROPIC_MODEL).toBe("claude-sonnet-4-20250514");
-    expect(env.ANTHROPIC_BASE_URL).toBe("https://api.anthropic.com/v1");
+    // ANTHROPIC_BASE_URL not set for default Anthropic endpoint
+    expect(env.ANTHROPIC_BASE_URL).toBeUndefined();
     expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+  });
+
+  it("sets ANTHROPIC_BASE_URL for non-Anthropic endpoints", () => {
+    const preset: Preset = {
+      model: "gpt-4o",
+      base_url: "https://api.deepseek.com/anthropic",
+    };
+    const env = resolveEnv(preset);
+    expect(env.ANTHROPIC_BASE_URL).toBe("https://api.deepseek.com/anthropic");
   });
 
   it("resolves $VAR from process.env", () => {
