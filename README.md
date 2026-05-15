@@ -12,10 +12,10 @@ $ claude-wrap
 ┌  claude-wrap — select provider
 │
 ◇  Choose a model backend:
+│  anthropic
 │  deepseek
 │  groq
 │  openai
-│  ollama
 ```
 
 ## Install
@@ -41,22 +41,16 @@ cp dist/claude-wrap ~/.local/bin/claude-wrap
 ## Quick start
 
 ```bash
-# Generate your config file
+# Generate your config (anthropic with login by default)
 claude-wrap --init
 
-# Add a preset interactively (no YAML editing required)
+# Add a preset interactively
 claude-wrap --add
-
-# Or edit the config directly
-claude-wrap --config-edit
-
-# Validate everything is working
-claude-wrap --doctor
 
 # Launch Claude Code with the interactive picker
 claude-wrap
 
-# Set a default and skip the picker
+# Pin a default and skip the picker
 claude-wrap --set-default deepseek
 claude-wrap                           # uses deepseek automatically
 ```
@@ -73,64 +67,69 @@ When the same preset name exists in both, the local config wins entirely.
 ### Schema
 
 ```yaml
-# Optional: skip the picker by setting a default preset
 default: anthropic
 
-# Optional: override path to the claude binary
 # claude_bin: /opt/homebrew/bin/claude
-# claude_bin:
-#   - npx
-#   - "@anthropic-ai/claude-code"
 
 presets:
   <name>:
-    description: "Optional description shown in --list"
+    description: "Optional description"
     model: <model-id>             # REQUIRED → ANTHROPIC_MODEL
     base_url: <api-endpoint>      # REQUIRED → ANTHROPIC_BASE_URL
     api_key: $MY_API_KEY          # optional → ANTHROPIC_API_KEY + ANTHROPIC_AUTH_TOKEN
-    login: true                   # optional → run claude login before launch
-    extra_env:                    # optional — additional env vars passed to claude
+    login: true                   # optional — Anthropic OAuth mode
+    bare: false                   # optional — disable auto-bare injection
+    extra_env:                    # optional — additional env vars
       CUSTOM_VAR: value
-      ANOTHER: $EXPANDED_VAR
 ```
 
-- `model` and `base_url` are **required** for every preset
-- `api_key` — optional. When set, populates both `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN`
-- `$VAR` references are expanded from your shell environment and any `.env` file found by walking up from CWD
-- Missing `$VAR` references cause a hard error (fail fast)
-- `extra_env` values also support `$VAR` expansion
+- `model` and `base_url` are **required**
+- `api_key` populates both `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN`
+- `$VAR` references expand from shell env and walk-up `.env` files
+- Missing `$VAR` references cause a hard error
+- Dangerous env vars (`PATH`, `LD_PRELOAD`, `HOME`, etc.) are blocked in `extra_env`
 
 ## CLI flags
 
 | Flag | Effect |
 |------|--------|
 | `--preset <name>`, `-p` | Skip picker, use named preset |
-| `--config <path>`, `-c` | Explicit config file (overrides XDG cascade) |
+| `--config <path>`, `-c` | Explicit config file |
 | `--init` | Generate template config |
 | `--init --force` | Overwrite existing config |
-| `--add` | Interactive wizard to add a new preset |
-| `--set-default <name>` | Set the default preset from CLI |
-| `--config-edit` | Open the presets file in `$EDITOR` |
-| `--doctor` | Validate all presets — reachability, auth, `$VAR` resolution |
-| `--update` | Self-update the binary from GitHub Releases |
-| `--list`, `-l` | List all presets (no launch) |
-| `--pick` | Force picker even when `default` is set |
-| `--dry-run` | Print resolved env vars and command, don't launch |
-| `--completion <shell>` | Print shell completion script (`zsh`, `bash`, `fish`) |
+| `--init --local` | Create project-level `.claude-wrap.yaml` |
+| `--local` | Target local config (`--config-edit --local`, etc.) |
+| `--list`, `-l` | List all presets |
+| `--add` | Interactive preset wizard |
+| `--remove <name>` | Delete a preset |
+| `--edit <name>` | Open config at preset location in `$EDITOR` |
+| `--set-default <name>` | Set default preset |
+| `--config-edit` | Open config in `$EDITOR` |
+| `--doctor` | Validate all presets (reachability, auth, vars) |
+| `--update` | Self-update binary from GitHub Releases |
+| `--export` | Print resolved env vars as shell `export` statements |
+| `--completion <shell>` | Print shell completions (`zsh`, `bash`, `fish`) |
+| `--which` | Print which preset would be selected (no launch) |
+| `--session [id]` | Resume a previous Claude Code session |
+| `--stats` | Show per-preset launch statistics |
+| `--info` | Print environment diagnostics |
+| `--pick` | Force interactive picker |
+| `--dry-run` | Print resolved env vars + command (no launch) |
+| `--no-bare` | Skip auto-bare injection |
 | `--version`, `-v` | Show version |
 | `--help`, `-h` | Show help |
 
-All other arguments are forwarded to `claude`. Example:
+All other arguments are forwarded to `claude`:
 
 ```bash
 claude-wrap -p deepseek -- --add-dir /path/to/code
 ```
 
-> **Auto-bare:** `claude-wrap` automatically injects `--bare` when using non-Anthropic backends (anything not `api.anthropic.com`). No need to pass it manually.
+> **Auto-bare:** `--bare` is auto-injected for non-Anthropic backends. Use `--no-bare` or set `bare: false` to disable.
 
 ## Managing presets
 
-### Add a preset interactively
+### Add interactively
 
 ```bash
 $ claude-wrap --add
@@ -139,65 +138,76 @@ $ claude-wrap --add
 ◇  Model:        gpt-4o
 ◇  Base URL:     https://openrouter.ai/api/v1
 ◇  API key:      $OPENROUTER_API_KEY
-◇  Description:  GPT-4o via OpenRouter
-◇  Add extra env vars?  No
-
-  Preset 'openai' added to ~/.config/claude-wrap/presets.yaml
+  Preset 'openai' added
 ```
 
-### Set the default preset
+### Remove a preset
+
+```bash
+$ claude-wrap --remove groq
+  Preset 'groq' removed.
+```
+
+### Edit a specific preset
+
+```bash
+$ claude-wrap --edit deepseek   # vim jumps to the preset line
+```
+
+### Set the default
 
 ```bash
 $ claude-wrap --set-default deepseek
   Default preset set to 'deepseek'
-
-$ claude-wrap        # skips picker, uses deepseek
 ```
 
-### Validate all presets
+### Project-level config
 
 ```bash
-$ claude-wrap --doctor
-
-claude-wrap doctor
-
-  deepseek
-    model:   deepseek-v4-pro[1m]
-    base:    https://api.deepseek.com/anthropic
-    vars:    ✓ all resolved
-    auth:    ✓ (sk-7f4e2...)
-    reach:   ✓ HTTP 200
-  groq
-    model:   llama-3.3-70b
-    base:    http://localhost:4000
-    vars:    ✓ all resolved
-    reach:   ✗ connection refused
-
----
-  claude:   ✓ 2.1.142 (Claude Code)
+$ claude-wrap --init --local         # create .claude-wrap.yaml in CWD
+$ claude-wrap --config-edit --local  # edit it
+$ claude-wrap --list                 # shows [local] badge on project presets
 ```
 
-### Self-update
+### Diagnose
 
 ```bash
-$ claude-wrap --update
-  Current: v0.1.0
-  Latest:  v0.2.0
-  Downloading claude-wrap-darwin-arm64... done.
-  Updated to v0.2.0
+$ claude-wrap --doctor               # validate all presets
+$ claude-wrap --dry-run -p deepseek  # print resolved env vars
+$ claude-wrap --info                 # show environment overview
+$ claude-wrap --stats                # per-preset launch counts
+```
+
+### Resume sessions
+
+```bash
+$ claude-wrap --session              # continue last session
+$ claude-wrap --session abc123       # resume session abc123
+```
+
+### Use in scripts
+
+```bash
+$ claude-wrap --which                # prints resolved preset name
+$ eval $(claude-wrap --export -p deepseek)  # export env vars to shell
 ```
 
 ### Shell completions
 
 ```bash
-# zsh
 claude-wrap --completion zsh > ~/.zsh/completions/_claude-wrap
-
-# bash
 claude-wrap --completion bash > ~/.bash_completion.d/claude-wrap
-
-# fish
 claude-wrap --completion fish > ~/.config/fish/completions/claude-wrap.fish
+```
+
+### Keep updated
+
+```bash
+$ claude-wrap --update
+  Current: v0.2.0
+  Latest:  v0.3.0
+  Downloading claude-wrap-darwin-arm64... done.
+  Updated to v0.3.0
 ```
 
 ## Example presets
@@ -210,7 +220,7 @@ presets:
     description: "Claude Sonnet via Anthropic subscription"
     model: claude-sonnet-4-20250514
     base_url: https://api.anthropic.com/v1
-    login: true           # runs claude login before launch
+    login: true
 ```
 
 ### DeepSeek
@@ -228,8 +238,6 @@ presets:
       ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-v4-flash[1m]"
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
 ```
-
-> `claude-wrap` auto-injects `--bare` for non-Anthropic backends. No need to pass it manually.
 
 ### OpenAI via OpenRouter
 
@@ -261,40 +269,44 @@ presets:
     description: "Local Ollama models via LiteLLM"
     model: ollama/llama3
     base_url: http://localhost:4000/v1
-    # no api_key needed
+```
+
+### Custom endpoint with native Anthropic API
+
+```yaml
+presets:
+  custom:
+    description: "Custom proxy that speaks Anthropic natively"
+    model: custom-model
+    base_url: https://my-proxy.example.com
+    api_key: $MY_KEY
+    bare: false       # skip auto-bare — this endpoint handles auth natively
 ```
 
 ## Requirements
 
-- **Claude Code CLI** — install via `npm install -g @anthropic-ai/claude-code` or [direct download](https://docs.anthropic.com/en/docs/claude-code)
-- **A supported backend** — Anthropic, DeepSeek, OpenRouter, LiteLLM, or any endpoint that speaks the Anthropic Messages API
+- **Claude Code CLI** — `npm install -g @anthropic-ai/claude-code`
+- **A supported backend** — Anthropic, DeepSeek, OpenRouter, LiteLLM, or any endpoint speaking the Anthropic Messages API
 
 ## FAQ
 
 ### What is `--bare` and do I need it?
 
-`--bare` tells Claude Code to skip OAuth/keychain authentication and use `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN` env vars instead. **`claude-wrap` injects it automatically** for any preset whose `base_url` isn't `https://api.anthropic.com`. You never need to pass it manually.
+`--bare` tells Claude Code to skip OAuth/keychain auth and use API key env vars. `claude-wrap` injects it automatically for non-Anthropic backends. You never need to pass it manually.
 
 ### Do I need a proxy for non-Anthropic models?
 
-It depends. Claude Code speaks Anthropic's Messages API format. DeepSeek provides a native [Anthropic-compatible endpoint](https://github.com/deepseek-ai/awesome-deepseek-agent/blob/main/docs/claude_code.md). For OpenAI, Groq, Ollama, etc., use [OpenRouter](https://openrouter.ai) or [LiteLLM](https://github.com/BerriAI/litellm) as a translation proxy.
+DeepSeek provides a native [Anthropic-compatible endpoint](https://github.com/deepseek-ai/awesome-deepseek-agent/blob/main/docs/claude_code.md). For OpenAI, Groq, Ollama, etc., use [OpenRouter](https://openrouter.ai) or [LiteLLM](https://github.com/BerriAI/litellm) as a translation proxy.
 
 ### Where are my API keys stored?
 
-Keys are in your preset YAML file at `~/.config/claude-wrap/presets.yaml`. Use `$VAR` references to avoid storing keys in plaintext:
+Keys live in `~/.config/claude-wrap/presets.yaml`. Use `$VAR` references to avoid plaintext:
 
 ```yaml
 api_key: $OPENROUTER_API_KEY  # loaded from shell env or .env
 ```
 
-The local config `.claude-wrap.yaml` is gitignored by default — never commit it.
-
-### How do I debug my preset configuration?
-
-```bash
-claude-wrap --dry-run -p <name>   # print resolved env vars
-claude-wrap --doctor              # validate all presets
-```
+`.claude-wrap.yaml` is gitignored by default — never commit it.
 
 ### How do I use this with the VSCode extension?
 
@@ -311,7 +323,7 @@ bun test          # run tests
 bun run build     # compile binary
 ```
 
-PRs welcome. Please run `bun run typecheck && bun test` before pushing.
+PRs welcome. Run `bun run typecheck && bun test` before pushing. Commit messages follow [conventional commits](https://www.conventionalcommits.org/). See the [PR template](.github/pull_request_template.md) for the checklist.
 
 ## License
 
