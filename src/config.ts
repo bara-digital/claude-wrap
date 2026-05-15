@@ -189,7 +189,7 @@ export function resolveClaudeBin(
 
 export function getInitTemplate(): string {
   return `# claude-wrap preset configuration
-# See all options: https://github.com/dedisuhanda/claude-wrap
+# See all options: https://github.com/bara-digital/claude-wrap
 
 # Optional: default preset (skips the picker)
 # default: anthropic
