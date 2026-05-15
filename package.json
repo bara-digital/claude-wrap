@@ -1,0 +1,37 @@
+{
+  "name": "claude-wrap",
+  "version": "0.1.0",
+  "description": "Multi-model launcher for Claude Code — pick any LLM backend via presets",
+  "type": "module",
+  "license": "MIT",
+  "author": "Dedi Suhanda",
+  "repository": "github.com/bara-digital/claude-wrap",
+  "homepage": "https://github.com/bara-digital/claude-wrap#readme",
+  "bugs": "https://github.com/bara-digital/claude-wrap/issues",
+  "keywords": [
+    "claude-code",
+    "llm",
+    "cli",
+    "multi-model",
+    "deepseek",
+    "openai",
+    "anthropic"
+  ],
+  "bin": {
+    "claude-wrap": "./dist/claude-wrap"
+  },
+  "scripts": {
+    "build": "bun build ./src/cli.ts --compile --outfile dist/claude-wrap",
+    "dev": "bun run src/cli.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.10.1",
+    "yaml": "^2.7.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^6.0.3"
+  }
+}
