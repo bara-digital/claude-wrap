@@ -10,6 +10,7 @@ import { runDoctor } from "./doctor";
 import { runUpdate } from "./update";
 import { runAdd } from "./add";
 import { generateCompletion } from "./completions";
+import { recordLaunch, showStats } from "./stats";
 import { VERSION } from "./version";
 
 function printHelp(): void {
@@ -37,6 +38,7 @@ Wrapper flags:
   --dry-run              Print resolved env vars and command without launching
   --no-bare              Skip auto-injecting --bare for non-Anthropic backends
   --which                Print which preset would be selected (no launch)
+  --stats                Show launch statistics per preset
   --session [id]         Resume a previous Claude Code session
   --version, -v          Show version
   --help, -h             Show this help
@@ -84,6 +86,7 @@ function parseFlags(): {
   noBare: boolean;
   session?: string;
   which: boolean;
+  stats: boolean;
   pick: boolean;
   dryRun: boolean;
   help: boolean;
@@ -109,6 +112,7 @@ function parseFlags(): {
     noBare: false,
     session: undefined as string | undefined,
     which: false,
+    stats: false,
     pick: false,
     dryRun: false,
     help: false,
@@ -203,6 +207,9 @@ function parseFlags(): {
         break;
       case "--which":
         result.which = true;
+        break;
+      case "--stats":
+        result.stats = true;
         break;
       case "--session":
         i++;
@@ -415,6 +422,10 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
+  if (flags.stats) {
+    showStats();
+  }
+
   if (flags.configEdit) {
     doConfigEdit(flags.config, flags.local);
   }
@@ -504,6 +515,8 @@ async function main(): Promise<void> {
   if (localPath) {
     process.stderr.write(`[claude-wrap] using project config: ${localPath}\n`);
   }
+
+  recordLaunch(presetName);
 
   execClaude(config, presetName, envVars, flags.args, flags.noBare);
 }
