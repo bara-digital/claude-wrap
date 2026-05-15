@@ -37,6 +37,7 @@ Wrapper flags:
   --dry-run              Print resolved env vars and command without launching
   --no-bare              Skip auto-injecting --bare for non-Anthropic backends
   --which                Print which preset would be selected (no launch)
+  --session [id]         Resume a previous Claude Code session
   --version, -v          Show version
   --help, -h             Show this help
 
@@ -81,6 +82,7 @@ function parseFlags(): {
   add: boolean;
   exportOnly: boolean;
   noBare: boolean;
+  session?: string;
   which: boolean;
   pick: boolean;
   dryRun: boolean;
@@ -105,6 +107,7 @@ function parseFlags(): {
     add: false,
     exportOnly: false,
     noBare: false,
+    session: undefined as string | undefined,
     which: false,
     pick: false,
     dryRun: false,
@@ -200,6 +203,15 @@ function parseFlags(): {
         break;
       case "--which":
         result.which = true;
+        break;
+      case "--session":
+        i++;
+        if (i < args.length && !args[i].startsWith("-")) {
+          result.session = args[i];
+        } else {
+          result.session = "latest";
+          i--; // backtrack — no arg
+        }
         break;
       case "--dry-run":
         result.dryRun = true;
@@ -431,6 +443,15 @@ async function main(): Promise<void> {
 
   if (flags.doctor) {
     await runDoctor(config);
+  }
+
+  // Inject session args into claude passthrough
+  if (flags.session) {
+    if (flags.session === "latest") {
+      flags.args.unshift("--continue");
+    } else {
+      flags.args.unshift("--resume", flags.session);
+    }
   }
 
   const presetName = await pickPreset(config, flags.pick, flags.preset);
