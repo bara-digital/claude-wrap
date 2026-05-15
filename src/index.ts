@@ -494,10 +494,11 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  const skipBare = flags.noBare || preset.bare === false;
+
   if (flags.dryRun) {
-    const skipBareDry = flags.noBare || preset.bare === false;
     process.stdout.write(
-      dryRun(presetName, envVars, config, flags.args, skipBareDry),
+      dryRun(presetName, envVars, config, flags.args, skipBare),
     );
     process.exit(0);
   }
@@ -508,25 +509,6 @@ async function main(): Promise<void> {
     }
     process.exit(0);
   }
-
-  // If preset has login: true, run claude login first (Anthropic OAuth flow)
-  if (preset.login) {
-    const loginResult = spawnSync("claude", ["login"], {
-      stdio: "inherit",
-      env: { ...process.env, ...envVars },
-    });
-    if (loginResult.status !== 0) {
-      process.exit(loginResult.status ?? 1);
-    }
-  }
-
-  if (localPath) {
-    process.stderr.write(`[claude-wrap] using project config: ${localPath}\n`);
-  }
-
-  recordLaunch(presetName);
-
-  const skipBare = flags.noBare || preset.bare === false;
 
   execClaude(config, presetName, envVars, flags.args, skipBare);
 }
