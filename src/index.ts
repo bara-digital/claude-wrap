@@ -11,6 +11,7 @@ import { runUpdate } from "./update";
 import { runAdd } from "./add";
 import { generateCompletion } from "./completions";
 import { recordLaunch, showStats } from "./stats";
+import { showInfo } from "./info";
 import { VERSION } from "./version";
 
 function printHelp(): void {
@@ -39,6 +40,7 @@ Wrapper flags:
   --no-bare              Skip auto-injecting --bare for non-Anthropic backends
   --which                Print which preset would be selected (no launch)
   --stats                Show launch statistics per preset
+  --info                 Print environment diagnostics
   --session [id]         Resume a previous Claude Code session
   --version, -v          Show version
   --help, -h             Show this help
@@ -87,6 +89,7 @@ function parseFlags(): {
   session?: string;
   which: boolean;
   stats: boolean;
+  info: boolean;
   pick: boolean;
   dryRun: boolean;
   help: boolean;
@@ -113,6 +116,7 @@ function parseFlags(): {
     session: undefined as string | undefined,
     which: false,
     stats: false,
+    info: false,
     pick: false,
     dryRun: false,
     help: false,
@@ -210,6 +214,9 @@ function parseFlags(): {
         break;
       case "--stats":
         result.stats = true;
+        break;
+      case "--info":
+        result.info = true;
         break;
       case "--session":
         i++;
@@ -426,30 +433,10 @@ async function main(): Promise<void> {
     showStats();
   }
 
-  if (flags.configEdit) {
-    doConfigEdit(flags.config, flags.local);
-  }
-
-  if (flags.setDefaultPreset) {
-    doSetDefault(flags.setDefaultPreset, flags.config);
-  }
-
-  if (flags.removePreset) {
-    doRemove(flags.removePreset, flags.config);
-  }
-
-  if (flags.add) {
-    await runAdd(flags.config);
-  }
-
-  if (flags.init) {
-    doInit(flags.initForce, flags.local);
-  }
-
   const config = loadConfig(flags.config);
 
-  if (flags.list) {
-    doList(config);
+  if (flags.info) {
+    showInfo(config);
   }
 
   if (flags.doctor) {
