@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import type { Config } from "./config";
 import { resolveClaudeBin } from "./config";
-import { resolveEnv } from "./launcher";
+import { resolveEnv } from "./env";
 
 interface PresetHealth {
   name: string;

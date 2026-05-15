@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { resolveEnv } from "../launcher";
+import { resolveEnv } from "../env";
 import type { Preset } from "../config";
 
 let tmpDir: string;

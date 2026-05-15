@@ -21,8 +21,8 @@
     "claude-wrap": "./dist/claude-wrap"
   },
   "scripts": {
-    "build": "bun build ./src/cli.ts --compile --outfile dist/claude-wrap",
-    "dev": "bun run src/cli.ts",
+    "build": "bun build ./src/index.ts --compile --outfile dist/claude-wrap",
+    "dev": "bun run src/index.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
