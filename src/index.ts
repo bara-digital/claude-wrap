@@ -433,6 +433,26 @@ async function main(): Promise<void> {
     showStats();
   }
 
+  if (flags.configEdit) {
+    doConfigEdit(flags.config, flags.local);
+  }
+
+  if (flags.setDefaultPreset) {
+    doSetDefault(flags.setDefaultPreset, flags.config);
+  }
+
+  if (flags.removePreset) {
+    doRemove(flags.removePreset, flags.config);
+  }
+
+  if (flags.add) {
+    await runAdd(flags.config);
+  }
+
+  if (flags.init) {
+    doInit(flags.initForce, flags.local);
+  }
+
   const config = loadConfig(flags.config);
 
   if (flags.info) {
