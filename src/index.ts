@@ -23,6 +23,7 @@ Wrapper flags:
   --config, -c <path>    Explicit config file path
   --init                 Generate template config at ~/.config/claude-wrap/presets.yaml
   --init --force         Overwrite existing config
+  --local                Target local .claude-wrap.yaml instead of global config
   --list, -l             List all available presets (no launch)
   --add                  Interactive wizard to add a new preset
   --remove <name>        Delete a preset from config
@@ -72,6 +73,7 @@ function parseFlags(): {
   update: boolean;
   completion?: string;
   configEdit: boolean;
+  local: boolean;
   setDefaultPreset?: string;
   removePreset?: string;
   add: boolean;
@@ -93,6 +95,7 @@ function parseFlags(): {
     update: false,
     completion: undefined as string | undefined,
     configEdit: false,
+    local: false,
     setDefaultPreset: undefined as string | undefined,
     removePreset: undefined as string | undefined,
     add: false,
@@ -154,6 +157,9 @@ function parseFlags(): {
       case "--config-edit":
         result.configEdit = true;
         break;
+      case "--local":
+        result.local = true;
+        break;
       case "--add":
         result.add = true;
         break;
@@ -209,13 +215,28 @@ function parseFlags(): {
   return result;
 }
 
-function doConfigEdit(explicitPath?: string): void {
-  const path = explicitPath ?? xdgConfigPath();
+function doConfigEdit(explicitPath?: string, local?: boolean): void {
+  const path = explicitPath ?? (local ? join(process.cwd(), ".claude-wrap.yaml") : xdgConfigPath());
 
   if (!existsSync(path)) {
-    process.stderr.write(`Config not found at ${path}\n`);
-    process.stderr.write(`Run 'claude-wrap --init' to create one.\n`);
-    process.exit(1);
+    if (local) {
+      const template = `# Local claude-wrap config (project overrides)
+# Presets defined here override same-name presets from the global config.
+#
+# See: https://github.com/bara-digital/claude-wrap
+
+presets:
+  # example:
+  #   model: gpt-4o
+  #   base_url: https://openrouter.ai/api/v1
+  #   api_key: $OPENROUTER_API_KEY
+`;
+      writeFileSync(path, template, "utf8");
+    } else {
+      process.stderr.write(`Config not found at ${path}\n`);
+      process.stderr.write(`Run 'claude-wrap --init' to create one.\n`);
+      process.exit(1);
+    }
   }
 
   const editor = process.env.EDITOR || process.env.VISUAL || "vim";
@@ -268,7 +289,32 @@ function doRemove(name: string, explicitPath?: string): void {
   process.exit(0);
 }
 
-function doInit(force: boolean): void {
+function doInit(force: boolean, local?: boolean): void {
+  if (local) {
+    const path = join(process.cwd(), ".claude-wrap.yaml");
+    if (existsSync(path) && !force) {
+      process.stdout.write(
+        `Config already exists at ${path}\n` +
+          `Use --init --local --force to overwrite, or edit it manually.\n`,
+      );
+      process.exit(1);
+    }
+    const template = `# Local claude-wrap config (project overrides)
+# Presets defined here override same-name presets from the global config.
+#
+# See: https://github.com/bara-digital/claude-wrap
+
+presets:
+  # example:
+  #   model: gpt-4o
+  #   base_url: https://openrouter.ai/api/v1
+  #   api_key: $OPENROUTER_API_KEY
+`;
+    writeFileSync(path, template, "utf8");
+    process.stdout.write(`Created ${path}\n`);
+    process.exit(0);
+  }
+
   const xdg =
     process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
   const dir = join(xdg, "claude-wrap");
@@ -327,7 +373,7 @@ async function main(): Promise<void> {
   }
 
   if (flags.configEdit) {
-    doConfigEdit(flags.config);
+    doConfigEdit(flags.config, flags.local);
   }
 
   if (flags.setDefaultPreset) {
@@ -343,7 +389,7 @@ async function main(): Promise<void> {
   }
 
   if (flags.init) {
-    doInit(flags.initForce);
+    doInit(flags.initForce, flags.local);
   }
 
   const config = loadConfig(flags.config);
