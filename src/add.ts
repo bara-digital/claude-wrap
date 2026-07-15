@@ -84,6 +84,16 @@ export async function runAdd(explicitPath?: string): Promise<void> {
     process.exit(0);
   }
 
+  const authToken = await text({
+    message: "Auth token / Bearer ($VAR or plaintext, optional):",
+    placeholder: "$MY_AUTH_TOKEN",
+  });
+
+  if (isCancel(authToken)) {
+    cancel("Aborted.");
+    process.exit(0);
+  }
+
   const desc = await text({
     message: "Description (optional):",
     placeholder: "GPT-4o via OpenRouter",
@@ -145,6 +155,7 @@ export async function runAdd(explicitPath?: string): Promise<void> {
   if (model) preset.model = model;
   if (desc) preset.description = desc;
   if (apiKey) preset.api_key = apiKey;
+  if (authToken) preset.auth_token = authToken;
   if (Object.keys(extraEnv).length > 0) preset.extra_env = extraEnv;
 
   // Append to existing YAML

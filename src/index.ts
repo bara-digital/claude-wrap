@@ -279,6 +279,8 @@ presets:
   #   model: gpt-4o
   #   base_url: https://openrouter.ai/api/v1
   #   api_key: $OPENROUTER_API_KEY
+  #   # or, for a gateway that needs a Bearer token:
+  #   # auth_token: $MY_AUTH_TOKEN
 `;
       writeFileSync(path, template, "utf8");
     } else {
@@ -393,6 +395,8 @@ presets:
   #   model: gpt-4o
   #   base_url: https://openrouter.ai/api/v1
   #   api_key: $OPENROUTER_API_KEY
+  #   # or, for a gateway that needs a Bearer token:
+  #   # auth_token: $MY_AUTH_TOKEN
 `;
     writeFileSync(path, template, "utf8");
     process.stdout.write(`Created ${path}\n`);
