@@ -75,7 +75,7 @@ export async function runAdd(explicitPath?: string): Promise<void> {
   }
 
   const apiKey = await text({
-    message: "API key ($VAR or plaintext):",
+    message: "API key — sets ANTHROPIC_API_KEY (x-api-key header):",
     placeholder: "$MY_API_KEY",
   });
 
@@ -85,7 +85,7 @@ export async function runAdd(explicitPath?: string): Promise<void> {
   }
 
   const authToken = await text({
-    message: "Auth token / Bearer ($VAR or plaintext, optional):",
+    message: "Auth token / Bearer — sets ANTHROPIC_AUTH_TOKEN (Authorization: Bearer header):",
     placeholder: "$MY_AUTH_TOKEN",
   });
 
