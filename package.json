@@ -1,6 +1,6 @@
 {
   "name": "claude-wrap",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Multi-model launcher for Claude Code — pick any LLM backend via presets",
   "type": "module",
   "license": "MIT",
