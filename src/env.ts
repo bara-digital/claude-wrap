@@ -90,11 +90,6 @@ export function resolveEnv(preset: Preset): Record<string, string> {
   if (preset.auth_token) {
     const token = resolveVar(preset.auth_token, combinedEnv);
     result.ANTHROPIC_AUTH_TOKEN = token;
-  } else if (preset.api_key) {
-    // Backward compatibility: presets that only set `api_key` previously
-    // populated both headers. Keep emitting ANTHROPIC_AUTH_TOKEN so gateways
-    // that authenticate via `Authorization: Bearer` keep working.
-    result.ANTHROPIC_AUTH_TOKEN = resolveVar(preset.api_key, combinedEnv);
   }
 
   if (preset.extra_env) {
