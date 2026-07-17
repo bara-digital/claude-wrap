@@ -42,10 +42,10 @@ fi
 git checkout -b "$BRANCH"
 
 echo "  → Updating src/version.ts"
-sed -i '' "s/VERSION = \".*\"/VERSION = \"${VERSION}\"/" src/version.ts
+sed -i.bak "s/VERSION = \".*\"/VERSION = \"${VERSION}\"/" src/version.ts && rm -f src/version.ts.bak
 
 echo "  → Updating package.json"
-sed -i '' "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" package.json
+sed -i.bak "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" package.json && rm -f package.json.bak
 
 echo "  → Typechecking..."
 bun run typecheck

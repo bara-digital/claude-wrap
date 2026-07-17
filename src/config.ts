@@ -1,4 +1,4 @@
-import { parse, stringify } from "yaml";
+import { parse, parseDocument } from "yaml";
 import { readFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { homedir } from "node:os";
@@ -406,13 +406,13 @@ export function removePreset(
     );
   }
 
-  const parsed = parse(rawYaml) as Record<string, unknown>;
-  const presets = parsed.presets as Record<string, unknown>;
-  delete presets[presetName];
-
-  if (parsed.default === presetName) {
-    delete parsed.default;
+  // Edit via the document model so comments in the existing file are
+  // preserved (DEEP-SCAN 1.2 — full stringify previously stripped them).
+  const doc = parseDocument(rawYaml);
+  doc.deleteIn(["presets", presetName]);
+  if (doc.get("default") === presetName) {
+    doc.deleteIn(["default"]);
   }
 
-  return stringify(parsed, null, 2) + "\n";
+  return String(doc);
 }

@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { text, confirm, intro, outro, isCancel, cancel, log } from "@clack/prompts";
-import { parse, stringify } from "yaml";
+import { parse, parseDocument } from "yaml";
 import { xdgConfigPath } from "./config";
 
 function readConfigRaw(path: string): string {
@@ -158,17 +158,15 @@ export async function runAdd(explicitPath?: string): Promise<void> {
   if (authToken) preset.auth_token = authToken;
   if (Object.keys(extraEnv).length > 0) preset.extra_env = extraEnv;
 
-  // Append to existing YAML
-  let newYaml: string;
-  if (raw.trim() && presets) {
-    // Surgical append: add to presets object
-    (parsed.presets as Record<string, unknown>)[name] = preset;
-    newYaml = stringify(parsed);
-  } else {
-    newYaml = stringify({ presets: { [name]: preset } });
+  // Append via the document model so comments in the existing file are
+  // preserved (DEEP-SCAN 1.1 — full stringify previously stripped them).
+  const doc = parseDocument(raw);
+  if (!doc.hasIn(["presets"]) || doc.get("presets") == null) {
+    doc.set("presets", {});
   }
+  doc.setIn(["presets", name], preset);
 
-  writeFileSync(configPath, newYaml, "utf8");
+  writeFileSync(configPath, String(doc), "utf8");
 
   outro(`Preset '${name}' added to ${configPath}`);
   process.exit(0);

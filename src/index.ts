@@ -668,6 +668,7 @@ async function main(): Promise<void> {
       );
       process.exit(0);
     }
+    recordLaunch(presetName);
     await runWeb(
       config,
       presetName,
@@ -704,6 +705,7 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
+  recordLaunch(presetName);
   execClaude(config, presetName, envVars, flags.args, isAnthropic, skipBare);
 }
 

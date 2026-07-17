@@ -441,6 +441,8 @@ bun run build     # compile binary
 
 PRs welcome. Run `bun run typecheck && bun test` before pushing. Commit messages follow [conventional commits](https://www.conventionalcommits.org/). See the [PR template](.github/pull_request_template.md) for the checklist.
 
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the module-by-module control/data flow, [docs/DEEP-SCAN.md](docs/DEEP-SCAN.md) for bugs/risks/coverage gaps, and [docs/adr](docs/adr) for the decision records behind each design choice.
+
 ## License
 
 MIT © Bara Digital
