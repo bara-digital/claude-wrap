@@ -117,10 +117,10 @@ export async function runUpdate(): Promise<void> {
   try {
     renameSync(tmpPath, currentPath);
   } catch {
-    // Permission denied — try sudo mv via temp location
+    // Permission denied — leave the verified binary in place so the
+    // printed command actually works, and tell the user how to finish.
     process.stdout.write("permission denied.\n");
     process.stdout.write(`  Run: sudo mv "${tmpPath}" "${currentPath}"\n`);
-    rmSync(tmpPath, { force: true });
     process.exit(1);
   }
   process.stdout.write("done.\n");
