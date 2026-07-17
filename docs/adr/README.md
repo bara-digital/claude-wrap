@@ -22,6 +22,7 @@ Each ADR captures **one decision, why it was made, and the alternatives rejected
 | [0012](0012-xdg-base-directory-compliance.md) | XDG Base Directory compliance for config & state | accepted |
 | [0013](0013-anthropic-backend-detection.md) | Single canonical `base_url` predicate for Anthropic detection | accepted |
 | [0014](0014-cli-arg-forwarding-boundary.md) | CLI argument forwarding boundary (wrapper flags vs passthrough) | accepted |
+| [0015](0015-web-ui-tmux-ttyd.md) | Web UI via tmux + ttyd — browser access to a persistent session | accepted |
 
 ## How they relate
 
@@ -31,3 +32,4 @@ Each ADR captures **one decision, why it was made, and the alternatives rejected
 - **Security:** 0007 (binary + env guardrails) defends the attack surface introduced by 0003's walk-up local config; 0012 (XDG) protects file locations.
 - **Distribution & ops:** 0009 (Bun binary + self-update), 0011 (local-only stats).
 - **CLI surface:** 0014 (arg-forwarding boundary).
+- **Remote access:** 0015 (web UI via tmux + ttyd) wraps the launch path (0001/0006) in a browser-exposed terminal, reusing the shared bare-injection rule from 0006.

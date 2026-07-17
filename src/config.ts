@@ -14,9 +14,19 @@ export interface Preset {
   extra_env?: Record<string, string>;
 }
 
+export interface WebConfig {
+  host?: string;
+  port?: number;
+  auth?: string;
+  tls_cert?: string;
+  tls_key?: string;
+  font_size?: number;
+}
+
 export interface Config {
   default?: string;
   claude_bin?: string | string[];
+  web?: WebConfig;
   presets: Record<string, Preset>;
 }
 
@@ -150,9 +160,39 @@ function validateConfig(raw: Record<string, unknown>, path: string): Config {
     }
   }
 
+  if (raw.web !== undefined) {
+    if (typeof raw.web !== "object" || Array.isArray(raw.web) || raw.web === null) {
+      throw new Error(`${path}: 'web' must be a mapping`);
+    }
+    const web = raw.web as Record<string, unknown>;
+    if (web.host !== undefined && typeof web.host !== "string") {
+      errors.push(`web.host: must be a string`);
+    }
+    if (web.port !== undefined && typeof web.port !== "number") {
+      errors.push(`web.port: must be a number`);
+    }
+    if (web.auth !== undefined && typeof web.auth !== "string") {
+      errors.push(`web.auth: must be a string`);
+    }
+    if (web.tls_cert !== undefined && typeof web.tls_cert !== "string") {
+      errors.push(`web.tls_cert: must be a string`);
+    }
+    if (web.tls_key !== undefined && typeof web.tls_key !== "string") {
+      errors.push(`web.tls_key: must be a string`);
+    }
+    if (web.font_size !== undefined && typeof web.font_size !== "number") {
+      errors.push(`web.font_size: must be a number`);
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`${path}:\n  ${errors.join("\n  ")}`);
+  }
+
   return {
     default: raw.default as string | undefined,
     claude_bin: raw.claude_bin as string | string[] | undefined,
+    web: (raw.web as unknown) as WebConfig | undefined,
     presets,
   };
 }
@@ -187,11 +227,13 @@ export function loadConfig(explicitPath?: string): Config {
   const mergedPresets = { ...global.presets, ...local.presets };
   const mergedDefault = local.default ?? global.default;
   const mergedClaudeBin = local.claude_bin ?? global.claude_bin;
+  const mergedWeb = local.web ?? global.web;
 
   // Validate that required fields are still met after merge
   const merged: Config = {
     default: mergedDefault,
     claude_bin: mergedClaudeBin,
+    web: mergedWeb,
     presets: mergedPresets,
   };
 

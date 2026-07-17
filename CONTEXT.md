@@ -32,6 +32,10 @@ _Avoid_: project config file, override file
 A preset flag selecting Anthropic OAuth/subscription auth. It forces OAuth by suppressing `--bare` injection, so Claude Code uses its keychain/OAuth flow instead of env-var credentials (see ADR 0006).
 _Avoid_: oauth mode, subscription mode
 
+**Web mode** (`--web`):
+A launch mode that runs the resolved Claude Code session inside a persistent tmux session and serves it over HTTP/WebSocket via ttyd, so the TUI is drivable from a browser. Credentials reach the session via the environment (never argv). On by default it binds all interfaces with an auto-generated basic-auth password (see ADR 0015).
+_Avoid_: remote mode, browser mode
+
 ## Credentials
 
 **api_key**:
