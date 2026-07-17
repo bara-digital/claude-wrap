@@ -8,6 +8,7 @@ export interface Preset {
   model?: string;
   base_url: string;
   api_key?: string;
+  auth_token?: string;
   login?: boolean;
   bare?: boolean;
   extra_env?: Record<string, string>;
@@ -90,6 +91,9 @@ function validateConfig(raw: Record<string, unknown>, path: string): Config {
     if (p.api_key !== undefined && typeof p.api_key !== "string") {
       errors.push(`presets.${name}: 'api_key' must be a string`);
     }
+    if (p.auth_token !== undefined && typeof p.auth_token !== "string") {
+      errors.push(`presets.${name}: 'auth_token' must be a string`);
+    }
     if (p.login !== undefined && typeof p.login !== "boolean") {
       errors.push(`presets.${name}: 'login' must be a boolean`);
     }
@@ -115,6 +119,7 @@ function validateConfig(raw: Record<string, unknown>, path: string): Config {
       if (p.model !== undefined) preset.model = p.model as string;
       if (p.description !== undefined) preset.description = p.description as string;
       if (p.api_key !== undefined) preset.api_key = p.api_key as string;
+      if (p.auth_token !== undefined) preset.auth_token = p.auth_token as string;
       if (p.login !== undefined) preset.login = p.login as boolean;
       if (p.bare !== undefined) preset.bare = p.bare as boolean;
       if (p.extra_env !== undefined) preset.extra_env = p.extra_env as Record<string, string>;
@@ -284,6 +289,14 @@ presets:
   #   model: ollama/llama3
   #   base_url: http://localhost:4000/v1
   #   # no api_key needed
+
+  # Gateway that needs a Bearer token instead of x-api-key
+  # (ANTHROPIC_API_KEY is left unset so Claude Code routes through the gateway)
+  # morph:
+  #   description: "Custom model via third-party gateway"
+  #   model: my-model
+  #   base_url: https://api.morphllm.com/v1
+  #   auth_token: $MORPH_API_KEY
 `;
 }
 

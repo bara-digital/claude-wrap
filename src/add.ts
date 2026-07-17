@@ -75,11 +75,21 @@ export async function runAdd(explicitPath?: string): Promise<void> {
   }
 
   const apiKey = await text({
-    message: "API key ($VAR or plaintext):",
+    message: "API key — sets ANTHROPIC_API_KEY (x-api-key header):",
     placeholder: "$MY_API_KEY",
   });
 
   if (isCancel(apiKey)) {
+    cancel("Aborted.");
+    process.exit(0);
+  }
+
+  const authToken = await text({
+    message: "Auth token / Bearer — sets ANTHROPIC_AUTH_TOKEN (Authorization: Bearer header):",
+    placeholder: "$MY_AUTH_TOKEN",
+  });
+
+  if (isCancel(authToken)) {
     cancel("Aborted.");
     process.exit(0);
   }
@@ -145,6 +155,7 @@ export async function runAdd(explicitPath?: string): Promise<void> {
   if (model) preset.model = model;
   if (desc) preset.description = desc;
   if (apiKey) preset.api_key = apiKey;
+  if (authToken) preset.auth_token = authToken;
   if (Object.keys(extraEnv).length > 0) preset.extra_env = extraEnv;
 
   // Append to existing YAML

@@ -76,7 +76,8 @@ presets:
     description: "Optional description"
     model: <model-id>             # REQUIRED → ANTHROPIC_MODEL
     base_url: <api-endpoint>      # REQUIRED → ANTHROPIC_BASE_URL
-    api_key: $MY_API_KEY          # optional → ANTHROPIC_API_KEY + ANTHROPIC_AUTH_TOKEN
+    api_key: $MY_API_KEY          # optional → ANTHROPIC_API_KEY (x-api-key)
+    auth_token: $MY_TOKEN         # optional → ANTHROPIC_AUTH_TOKEN (Bearer)
     login: true                   # optional — Anthropic OAuth mode
     bare: false                   # optional — disable auto-bare injection
     extra_env:                    # optional — additional env vars
@@ -84,7 +85,21 @@ presets:
 ```
 
 - `model` and `base_url` are **required**
-- `api_key` populates both `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN`
+- `api_key` populates `ANTHROPIC_API_KEY` (sent as the `x-api-key` header). For backward
+  compatibility, when `auth_token` is **not** set it also populates `ANTHROPIC_AUTH_TOKEN`
+  (so gateways that authenticate via `Authorization: Bearer` keep working with legacy presets)
+- `auth_token` populates `ANTHROPIC_AUTH_TOKEN` only (sent as `Authorization: Bearer`), and
+  overrides the `api_key` fallback for that header
+- If `api_key` is absent **and** `auth_token` is set, `ANTHROPIC_API_KEY` is left **unset** —
+  this is how you route through a third-party gateway with a Bearer token while keeping
+  `ANTHROPIC_API_KEY` empty:
+  ```yaml
+  presets:
+    morph:
+      model: my-model
+      base_url: https://api.morphllm.com/v1
+      auth_token: $MORPH_API_KEY   # ANTHROPIC_API_KEY stays unset
+  ```
 - `$VAR` references expand from shell env and walk-up `.env` files
 - Missing `$VAR` references cause a hard error
 - Dangerous env vars (`PATH`, `LD_PRELOAD`, `HOME`, etc.) are blocked in `extra_env`
@@ -281,6 +296,21 @@ presets:
     base_url: https://my-proxy.example.com
     api_key: $MY_KEY
     bare: false       # skip auto-bare — this endpoint handles auth natively
+```
+
+### Third-party gateway (Bearer token, no Anthropic key)
+
+Some gateways (e.g. Morph) expect a Bearer token and want `ANTHROPIC_API_KEY` left unset so
+Claude Code doesn't fall back to Anthropic auth. Use `auth_token` on its own:
+
+```yaml
+presets:
+  morph:
+    description: "Custom model via third-party gateway"
+    model: my-model
+    base_url: https://api.morphllm.com/v1
+    auth_token: $MORPH_API_KEY
+    # ANTHROPIC_API_KEY is intentionally unset
 ```
 
 ## Requirements
