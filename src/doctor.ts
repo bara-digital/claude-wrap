@@ -102,7 +102,7 @@ export async function runDoctor(config: Config): Promise<void> {
 
     if (envVars) {
       process.stdout.write(`    reach:   `);
-      const result = await checkEndpoint(envVars.ANTHROPIC_BASE_URL, authToken);
+      const result = await checkEndpoint(envVars.ANTHROPIC_BASE_URL ?? preset.base_url, authToken);
       if (result.reachable) {
         const statusColor = result.status === 200 ? "\x1b[32m" : "\x1b[33m";
         process.stdout.write(`${statusColor}✓\x1b[0m HTTP ${result.status}\n`);
