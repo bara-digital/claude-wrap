@@ -85,14 +85,10 @@ presets:
 ```
 
 - `model` and `base_url` are **required**
-- `api_key` populates `ANTHROPIC_API_KEY` (sent as the `x-api-key` header). For backward
-  compatibility, when `auth_token` is **not** set it also populates `ANTHROPIC_AUTH_TOKEN`
-  (so gateways that authenticate via `Authorization: Bearer` keep working with legacy presets)
-- `auth_token` populates `ANTHROPIC_AUTH_TOKEN` only (sent as `Authorization: Bearer`), and
-  overrides the `api_key` fallback for that header
-- If `api_key` is absent **and** `auth_token` is set, `ANTHROPIC_API_KEY` is left **unset** —
-  this is how you route through a third-party gateway with a Bearer token while keeping
-  `ANTHROPIC_API_KEY` empty:
+- `api_key` populates `ANTHROPIC_API_KEY` only (sent as the `x-api-key` header)
+- `auth_token` populates `ANTHROPIC_AUTH_TOKEN` only (sent as `Authorization: Bearer`)
+- Set exactly one of them — Claude Code warns when both env vars are present. Gateways
+  that authenticate via `Authorization: Bearer` should use `auth_token`:
   ```yaml
   presets:
     morph:

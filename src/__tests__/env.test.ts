@@ -67,7 +67,7 @@ describe("resolveEnv", () => {
     expect(env.ANTHROPIC_API_KEY).toBe("secret-123");
   });
 
-  it("api_key alone sets both ANTHROPIC_API_KEY and ANTHROPIC_AUTH_TOKEN (backward compat)", () => {
+  it("api_key alone sets ANTHROPIC_API_KEY only — not ANTHROPIC_AUTH_TOKEN", () => {
     process.env.MY_API_KEY = "secret-123";
     const preset: Preset = {
       model: "gpt-4o",
@@ -76,21 +76,7 @@ describe("resolveEnv", () => {
     };
     const env = resolveEnv(preset);
     expect(env.ANTHROPIC_API_KEY).toBe("secret-123");
-    expect(env.ANTHROPIC_AUTH_TOKEN).toBe("secret-123");
-  });
-
-  it("explicit auth_token overrides the api_key fallback for ANTHROPIC_AUTH_TOKEN", () => {
-    process.env.MY_API_KEY = "secret-123";
-    process.env.MY_TOKEN = "bearer-abc";
-    const preset: Preset = {
-      model: "gpt-4o",
-      base_url: "https://example.com",
-      api_key: "$MY_API_KEY",
-      auth_token: "$MY_TOKEN",
-    };
-    const env = resolveEnv(preset);
-    expect(env.ANTHROPIC_API_KEY).toBe("secret-123");
-    expect(env.ANTHROPIC_AUTH_TOKEN).toBe("bearer-abc");
+    expect(env.ANTHROPIC_AUTH_TOKEN).toBeUndefined();
   });
 
   it("auth_token sets ANTHROPIC_AUTH_TOKEN only — not ANTHROPIC_API_KEY", () => {
