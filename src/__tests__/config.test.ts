@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { loadConfig, type Config } from "../config";
+import { loadConfig, resolveClaudeBin, type Config } from "../config";
 
 let tmpDir: string;
 let origDir: string;
@@ -237,5 +237,52 @@ presets:
     const config = loadConfig();
     expect(Array.isArray(config.claude_bin)).toBe(true);
     expect((config.claude_bin as string[]).join(" ")).toBe("npx @anthropic-ai/claude-code");
+  });
+});
+
+describe("resolveClaudeBin", () => {
+  it("defaults to 'claude' when unset", () => {
+    expect(resolveClaudeBin(undefined)).toEqual(["claude"]);
+  });
+
+  it("allows bare allowlisted commands", () => {
+    expect(resolveClaudeBin("claude")).toEqual(["claude"]);
+    expect(resolveClaudeBin("npx")).toEqual(["npx"]);
+  });
+
+  it("rejects bare commands not on the allowlist", () => {
+    expect(() => resolveClaudeBin("evil")).toThrow("not an allowed binary");
+  });
+
+  it("allows absolute paths whose basename is allowlisted", () => {
+    expect(resolveClaudeBin("/opt/homebrew/bin/claude")).toEqual([
+      "/opt/homebrew/bin/claude",
+    ]);
+    expect(resolveClaudeBin("/usr/local/bin/node")).toEqual([
+      "/usr/local/bin/node",
+    ]);
+  });
+
+  it("rejects absolute paths whose basename is NOT allowlisted", () => {
+    expect(() => resolveClaudeBin("/home/user/evilbinary")).toThrow(
+      "must be one of",
+    );
+  });
+
+  it("rejects relative paths (cloned-repo executable attack)", () => {
+    expect(() => resolveClaudeBin("./runme")).toThrow("relative paths");
+    expect(() => resolveClaudeBin("../x/claude")).toThrow("relative paths");
+  });
+
+  it("rejects paths under blocked prefixes", () => {
+    expect(() => resolveClaudeBin("/tmp/claude")).toThrow("is not allowed");
+    expect(() => resolveClaudeBin("/dev/claude")).toThrow("is not allowed");
+  });
+
+  it("validates only the command, not its arguments", () => {
+    expect(resolveClaudeBin(["npx", "@anthropic-ai/claude-code"])).toEqual([
+      "npx",
+      "@anthropic-ai/claude-code",
+    ]);
   });
 });

@@ -548,7 +548,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const skipBare = flags.noBare || preset.bare === false;
+  // login: true forces Anthropic OAuth mode — never inject --bare, so
+  // Claude Code uses its normal keychain/OAuth flow instead of env-var auth.
+  const skipBare = flags.noBare || preset.bare === false || preset.login === true;
   const isAnthropic = preset.base_url.startsWith("https://api.anthropic.com");
 
   if (flags.dryRun) {

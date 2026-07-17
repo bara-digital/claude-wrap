@@ -217,7 +217,7 @@ const BLOCKED_BIN_PREFIXES = ["/tmp", "/var/tmp", "/dev"];
 function validateBinName(cmd: string): void {
   if (!cmd) throw new Error("claude_bin: command cannot be empty");
 
-  // If it looks like a path, reject suspicious prefixes
+  // If it looks like a path, apply the path guards.
   if (cmd.includes("/")) {
     for (const prefix of BLOCKED_BIN_PREFIXES) {
       if (cmd.startsWith(prefix)) {
@@ -226,6 +226,25 @@ function validateBinName(cmd: string): void {
             `Use a system-installed binary in /usr/local/bin or similar.`,
         );
       }
+    }
+
+    // Reject relative paths — a cloned repo could ship an executable
+    // (e.g. ./runme or ../x) and point claude_bin at it.
+    if (!cmd.startsWith("/")) {
+      throw new Error(
+        `claude_bin: relative paths are not allowed ('${cmd}'). ` +
+          `Use an absolute path to a system-installed binary.`,
+      );
+    }
+
+    // The basename must still be an allowed binary, so an absolute path
+    // can only ever resolve to claude/npx/node/bun.
+    const base = cmd.split("/").pop() ?? "";
+    if (!ALLOWED_BINS.includes(base)) {
+      throw new Error(
+        `claude_bin: '${cmd}' is not allowed. ` +
+          `The binary name must be one of: ${ALLOWED_BINS.join(", ")}`,
+      );
     }
     return;
   }
