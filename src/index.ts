@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { loadConfig, getInitTemplate, xdgConfigPath, setDefault, removePreset, hasLocalConfig } from "./config";
 import { pickPreset } from "./picker";
 import { execClaude, dryRun } from "./launcher";
+import { runWeb, webDryRun } from "./web";
 import { resolveEnv } from "./env";
 import { runDoctor } from "./doctor";
 import { runUpdate } from "./update";
@@ -39,6 +40,14 @@ Wrapper flags:
   --pick                 Force interactive picker even when default is set
   --dry-run              Print resolved env vars and command without launching
   --no-bare              Skip auto-injecting --bare for non-Anthropic backends
+  --web                  Serve the session over a web UI (tmux + ttyd)
+  --web-port <n>         Web UI port (default 7681)
+  --web-host <addr>      Web UI bind address (default 0.0.0.0 = all)
+  --web-auth <user:pass> HTTP basic auth for the web UI
+  --web-tls-cert <path>  TLS certificate for HTTPS web UI
+  --web-tls-key <path>   TLS private key for HTTPS web UI
+  --web-font-size <n>    Terminal font size (larger = better on phones)
+  --web-no-auth          Disable auth (insecure — warns loudly)
   --which                Print which preset would be selected (no launch)
   --stats                Show launch statistics per preset
   --info                 Print environment diagnostics
@@ -94,6 +103,14 @@ function parseFlags(): {
   info: boolean;
   pick: boolean;
   dryRun: boolean;
+  web: boolean;
+  webPort?: number;
+  webHost?: string;
+  webAuth?: string;
+  webTlsCert?: string;
+  webTlsKey?: string;
+  webNoAuth: boolean;
+  webFontSize?: number;
   help: boolean;
   version: boolean;
   args: string[];
@@ -122,6 +139,14 @@ function parseFlags(): {
     editPreset: undefined as string | undefined,
     pick: false,
     dryRun: false,
+    web: false,
+    webPort: undefined as number | undefined,
+    webHost: undefined as string | undefined,
+    webAuth: undefined as string | undefined,
+    webTlsCert: undefined as string | undefined,
+    webTlsKey: undefined as string | undefined,
+    webNoAuth: false,
+    webFontSize: undefined as number | undefined,
     help: false,
     version: false,
     args: [] as string[],
@@ -240,6 +265,74 @@ function parseFlags(): {
         break;
       case "--dry-run":
         result.dryRun = true;
+        break;
+      case "--web":
+        result.web = true;
+        break;
+      case "--web-no-auth":
+        result.webNoAuth = true;
+        break;
+      case "--web-port":
+        i++;
+        if (i >= args.length) {
+          process.stderr.write("claude-wrap: --web-port requires a value\n");
+          process.exit(1);
+        }
+        {
+          const p = Number(args[i]);
+          if (!Number.isFinite(p) || p <= 0 || p > 65535) {
+            process.stderr.write("claude-wrap: --web-port must be a valid port (1-65535)\n");
+            process.exit(1);
+          }
+          result.webPort = p;
+        }
+        break;
+      case "--web-host":
+        i++;
+        if (i >= args.length) {
+          process.stderr.write("claude-wrap: --web-host requires a value\n");
+          process.exit(1);
+        }
+        result.webHost = args[i];
+        break;
+      case "--web-auth":
+        i++;
+        if (i >= args.length) {
+          process.stderr.write("claude-wrap: --web-auth requires a value\n");
+          process.exit(1);
+        }
+        result.webAuth = args[i];
+        break;
+      case "--web-tls-cert":
+        i++;
+        if (i >= args.length) {
+          process.stderr.write("claude-wrap: --web-tls-cert requires a value\n");
+          process.exit(1);
+        }
+        result.webTlsCert = args[i];
+        break;
+      case "--web-tls-key":
+        i++;
+        if (i >= args.length) {
+          process.stderr.write("claude-wrap: --web-tls-key requires a value\n");
+          process.exit(1);
+        }
+        result.webTlsKey = args[i];
+        break;
+      case "--web-font-size":
+        i++;
+        if (i >= args.length) {
+          process.stderr.write("claude-wrap: --web-font-size requires a value\n");
+          process.exit(1);
+        }
+        {
+          const fs = Number(args[i]);
+          if (!Number.isFinite(fs) || fs <= 0) {
+            process.stderr.write("claude-wrap: --web-font-size must be a positive number\n");
+            process.exit(1);
+          }
+          result.webFontSize = fs;
+        }
         break;
       case "--help":
       case "-h":
@@ -552,6 +645,48 @@ async function main(): Promise<void> {
   // Claude Code uses its normal keychain/OAuth flow instead of env-var auth.
   const skipBare = flags.noBare || preset.bare === false || preset.login === true;
   const isAnthropic = preset.base_url.startsWith("https://api.anthropic.com");
+
+  if (flags.web) {
+    if (flags.dryRun) {
+      process.stdout.write(
+        webDryRun(
+          config,
+          presetName,
+          isAnthropic,
+          skipBare,
+          flags.args,
+          {
+            host: flags.webHost,
+            port: flags.webPort,
+            auth: flags.webAuth,
+            tlsCert: flags.webTlsCert,
+            tlsKey: flags.webTlsKey,
+            noAuth: flags.webNoAuth,
+            fontSize: flags.webFontSize,
+          },
+        ),
+      );
+      process.exit(0);
+    }
+    await runWeb(
+      config,
+      presetName,
+      envVars,
+      flags.args,
+      isAnthropic,
+      skipBare,
+      {
+        host: flags.webHost,
+        port: flags.webPort,
+        auth: flags.webAuth,
+        tlsCert: flags.webTlsCert,
+        tlsKey: flags.webTlsKey,
+        noAuth: flags.webNoAuth,
+        fontSize: flags.webFontSize,
+      },
+    );
+    return;
+  }
 
   if (flags.dryRun) {
     process.stdout.write(

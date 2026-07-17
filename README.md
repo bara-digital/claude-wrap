@@ -53,6 +53,9 @@ claude-wrap
 # Pin a default and skip the picker
 claude-wrap --set-default deepseek
 claude-wrap                           # uses deepseek automatically
+
+# Drive the session from a browser (see Web UI below)
+claude-wrap --web -p deepseek
 ```
 
 ## Config
@@ -127,6 +130,14 @@ presets:
 | `--pick` | Force interactive picker |
 | `--dry-run` | Print resolved env vars + command (no launch) |
 | `--no-bare` | Skip auto-bare injection |
+| `--web` | Serve the session over a web UI (tmux + ttyd) |
+| `--web-port <n>` | Web UI port (default `7681`) |
+| `--web-host <addr>` | Web UI bind address (default `0.0.0.0`) |
+| `--web-auth <user:pass>` | HTTP basic auth for the web UI |
+| `--web-tls-cert <path>` | TLS certificate for HTTPS web UI |
+| `--web-tls-key <path>` | TLS private key for HTTPS web UI |
+| `--web-font-size <n>` | Terminal font size (larger reads better on phones) |
+| `--web-no-auth` | Disable auth (insecure — warns loudly) |
 | `--version`, `-v` | Show version |
 | `--help`, `-h` | Show help |
 
@@ -308,6 +319,85 @@ presets:
     auth_token: $MORPH_API_KEY
     # ANTHROPIC_API_KEY is intentionally unset
 ```
+
+## Web UI (browser access)
+
+`claude-wrap --web` runs Claude Code inside a persistent **tmux** session and serves it
+over the web with **ttyd** — a single-binary web-terminal server. Open the printed URL in
+any browser to get the full Claude Code TUI; closing the tab and reopening re-attaches to the
+same live session.
+
+```bash
+claude-wrap --web -p deepseek          # serve the deepseek preset on :7681
+claude-wrap --web                        # serves the default preset
+claude-wrap --web --dry-run             # print the composed ttyd command, don't launch
+```
+
+On launch it prints the URL and an **auto-generated `claude:<password>`** credential (basic
+auth). To use your own credentials, pass `--web-auth user:pass` or set them in config (see
+below). TLS is supported with `--web-tls-cert` / `--web-tls-key`.
+
+### Requirements
+
+`--web` requires `tmux` and `ttyd` on `PATH`. If either is missing, `claude-wrap` prints
+install instructions and exits:
+
+```bash
+# macOS
+brew install tmux ttyd
+# Linux (Debian/Ubuntu)
+sudo apt-get install -y tmux
+# ttyd isn't in most distro repos — grab a release:
+#   https://github.com/tsl0922/ttyd/releases
+```
+
+### Configuration
+
+Settings live under an optional top-level `web:` block; CLI flags override them.
+
+```yaml
+web:
+  host: 0.0.0.0        # bind address (default all interfaces)
+  port: 7681           # port
+  auth: $WEB_AUTH      # "user:pass" — $VAR references are expanded
+  tls_cert: /path/cert.pem
+  tls_key: /path/key.pem
+  font_size: 18        # terminal font size (larger reads better on phones)
+```
+
+### Security
+
+> ⚠️ **The web terminal is a full shell running Claude Code.** Treat it like SSH.
+
+- By default it binds **all interfaces (`0.0.0.0`)** with an **auto-generated password**.
+  That password protects the page, but over plain HTTP it travels in cleartext — fine on
+  `localhost`, risky on a shared LAN.
+- For remote access, prefer **one of**:
+  - **TLS** via `--web-tls-cert`/`--web-tls-key` (or a reverse proxy like Caddy/nginx), **or**
+  - an **SSH tunnel**: `ssh -L 7681:localhost:7681 host` then browse `http://localhost:7681`, **or**
+  - bind to `127.0.0.1` (`--web-host 127.0.0.1`) and expose via a VPN.
+- Never use `--web-no-auth` on an exposed interface.
+- Credentials reach Claude Code via the **environment**, never argv — `ps` won't show your
+  keys.
+
+### Mobile
+
+The page is responsive and works on phones, but Claude Code is a **keyboard-driven TUI** and
+mobile soft keyboards often lack `Esc`, `Ctrl`, arrow keys, and `Tab`. Reading output and
+typing prompts is fine; driving menus/approvals is fiddly. To make it usable:
+
+- **Bump the font** for readability: `claude-wrap --web --web-font-size 18` (or set
+  `web.font_size` in config).
+- **Pair a Bluetooth keyboard** — this is the single biggest improvement; it turns the
+  browser tab into a normal terminal.
+- **Use a keyboard app that exposes terminal keys** (e.g. Hacker's Keyboard on Android).
+- **Prefer SSH + tmux for heavy use.** Because the session runs on a dedicated tmux socket,
+  a mobile SSH app (Blink, Termius) can attach to the *same* session directly:
+  ```bash
+  ssh user@host
+  tmux -L claude-wrap-<preset> attach -t main
+  ```
+  This gives a purpose-built mobile terminal with soft-keys for `Esc`/`Ctrl`/arrows.
 
 ## Requirements
 

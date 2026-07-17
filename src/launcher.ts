@@ -2,14 +2,20 @@ import { spawnSync, spawn } from "node:child_process";
 import type { Config } from "./config";
 import { resolveClaudeBin } from "./config";
 
-export function execClaude(
+export interface ClaudeInvocation {
+  cmd: string;
+  finalArgs: string[];
+}
+
+// Resolve the claude binary and its final argv, applying the auto-`--bare`
+// injection rule shared by every launch path (execClaude, dryRun, web).
+// Single source of truth so the rule lives in one place (see ADR 0006).
+export function buildClaudeInvocation(
   config: Config,
-  presetName: string,
-  envVars: Record<string, string>,
   args: string[],
   isAnthropic: boolean,
   noBare?: boolean,
-): void {
+): ClaudeInvocation {
   const claudeCmd = resolveClaudeBin(config.claude_bin);
   const cmd = claudeCmd[0];
   const finalArgs = claudeCmd.slice(1).concat(args);
@@ -18,6 +24,19 @@ export function execClaude(
   if (!isAnthropic && !noBare && !finalArgs.includes("--bare")) {
     finalArgs.unshift("--bare");
   }
+
+  return { cmd, finalArgs };
+}
+
+export function execClaude(
+  config: Config,
+  presetName: string,
+  envVars: Record<string, string>,
+  args: string[],
+  isAnthropic: boolean,
+  noBare?: boolean,
+): void {
+  const { cmd, finalArgs } = buildClaudeInvocation(config, args, isAnthropic, noBare);
 
   // Verify the binary exists before we detach
   const check = spawnSync("which", [cmd], { stdio: "pipe" });
@@ -63,17 +82,12 @@ export function dryRun(
   isAnthropic: boolean,
   noBare?: boolean,
 ): string {
-  const claudeCmd = resolveClaudeBin(config.claude_bin);
-  const finalArgs = claudeCmd.slice(1).concat(args);
-
-  if (!isAnthropic && !noBare && !finalArgs.includes("--bare")) {
-    finalArgs.unshift("--bare");
-  }
+  const { cmd, finalArgs } = buildClaudeInvocation(config, args, isAnthropic, noBare);
 
   const lines: string[] = [
     `# claude-wrap --dry-run`,
     `# Preset: ${presetName}`,
-    `# Command: ${claudeCmd[0]} ${finalArgs.join(" ")}`,
+    `# Command: ${cmd} ${finalArgs.join(" ")}`,
     "",
   ];
 

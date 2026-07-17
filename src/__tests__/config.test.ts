@@ -238,6 +238,63 @@ presets:
     expect(Array.isArray(config.claude_bin)).toBe(true);
     expect((config.claude_bin as string[]).join(" ")).toBe("npx @anthropic-ai/claude-code");
   });
+
+  it("parses an optional web: block", () => {
+    writeGlobalYaml(`
+web:
+  host: 127.0.0.1
+  port: 9000
+  auth: user:pass
+presets:
+  a:
+    model: gpt-4o
+    base_url: https://example.com
+`);
+    process.env.XDG_CONFIG_HOME = join(tmpDir, ".config");
+    const config = loadConfig();
+    expect(config.web).toEqual({
+      host: "127.0.0.1",
+      port: 9000,
+      auth: "user:pass",
+    });
+  });
+
+  it("rejects a non-numeric web.port", () => {
+    writeGlobalYaml(`
+web:
+  port: not-a-number
+presets:
+  a:
+    model: gpt-4o
+    base_url: https://example.com
+`);
+    process.env.XDG_CONFIG_HOME = join(tmpDir, ".config");
+    expect(() => loadConfig()).toThrow("web.port");
+  });
+
+  it("merges local web: block over global", () => {
+    writeGlobalYaml(`
+web:
+  host: 127.0.0.1
+  port: 9000
+presets:
+  a:
+    model: gpt-4o
+    base_url: https://example.com
+`);
+    writeLocalYaml(`
+web:
+  port: 8080
+presets:
+  a:
+    model: gpt-4o
+    base_url: https://example.com
+`);
+    process.env.XDG_CONFIG_HOME = join(tmpDir, ".config");
+    const config = loadConfig();
+    // local.web overrides global.web wholesale (same rule as default/claude_bin)
+    expect(config.web).toEqual({ port: 8080 });
+  });
 });
 
 describe("resolveClaudeBin", () => {
