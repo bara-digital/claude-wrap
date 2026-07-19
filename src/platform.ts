@@ -7,7 +7,7 @@
  * can be unit-tested on a macOS/Linux dev machine.
  */
 import { homedir, tmpdir, platform as osPlatform } from "node:os";
-import { join, dirname, isAbsolute as pathIsAbsolute, basename as pathBasename } from "node:path";
+import { join, isAbsolute as pathIsAbsolute } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 

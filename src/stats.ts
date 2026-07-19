@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import { userStatePath } from "./platform";
 
 function statsPath(): string {

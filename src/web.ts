@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import type { Config, WebConfig } from "./config";
 import { buildClaudeInvocation, type ClaudeInvocation } from "./launcher";
 import { resolveVar } from "./env";
-import { isWindows, isWsl } from "./platform";
+import { isWsl } from "./platform";
 
 export interface WebOptions {
   host?: string;
