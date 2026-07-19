@@ -32,7 +32,11 @@ describe("dryRun", () => {
     expect(out).toContain("# claude-wrap --dry-run");
     expect(out).toContain("# Preset: anthropic");
     expect(out).toContain("claude");
-    expect(out).toContain("export ANTHROPIC_API_KEY='sk-123'");
+    // dryRun emits cmd.exe syntax on Windows, bash elsewhere.
+    const envLine = process.platform === "win32"
+      ? 'set "ANTHROPIC_API_KEY=sk-123"'
+      : "export ANTHROPIC_API_KEY='sk-123'";
+    expect(out).toContain(envLine);
   });
 
   it("does not leak the key into the command line", () => {

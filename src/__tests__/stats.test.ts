@@ -6,16 +6,23 @@ import { recordLaunch } from "../stats";
 
 let tmpDir: string;
 let origState: string | undefined;
+let origLocal: string | undefined;
 
 beforeEach(() => {
   origState = process.env.XDG_STATE_HOME;
+  origLocal = process.env.LOCALAPPDATA;
   tmpDir = mkdtempSync(join(tmpdir(), "cw-stats-"));
+  // Point both the Unix and Windows state dirs at tmpDir so userStatePath()
+  // resolves to <tmpDir>/claude-wrap/stats.json on every platform.
   process.env.XDG_STATE_HOME = tmpDir;
+  process.env.LOCALAPPDATA = tmpDir;
 });
 
 afterEach(() => {
   if (origState === undefined) delete process.env.XDG_STATE_HOME;
   else process.env.XDG_STATE_HOME = origState;
+  if (origLocal === undefined) delete process.env.LOCALAPPDATA;
+  else process.env.LOCALAPPDATA = origLocal;
   rmSync(tmpDir, { recursive: true, force: true });
 });
 

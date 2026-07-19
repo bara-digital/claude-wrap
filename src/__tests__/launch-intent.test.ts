@@ -45,16 +45,26 @@ function baseFlags(over: Partial<Flags> = {}): Flags {
 
 let tmpDir: string;
 let origXdg: string | undefined;
+let origAppData: string | undefined;
 
 beforeEach(() => {
   origXdg = process.env.XDG_CONFIG_HOME;
+  origAppData = process.env.APPDATA;
   tmpDir = mkdtempSync(join(tmpdir(), "cw-li-"));
-  process.env.XDG_CONFIG_HOME = tmpDir;
+  // Point the platform-specific global config dir at tmpDir so configExists()
+  // resolves inside it on every OS (%APPDATA% on Windows, XDG on Unix).
+  if (process.platform === "win32") {
+    process.env.APPDATA = join(tmpDir, "AppData", "Roaming");
+  } else {
+    process.env.XDG_CONFIG_HOME = tmpDir;
+  }
 });
 
 afterEach(() => {
   if (origXdg === undefined) delete process.env.XDG_CONFIG_HOME;
   else process.env.XDG_CONFIG_HOME = origXdg;
+  if (origAppData === undefined) delete process.env.APPDATA;
+  else process.env.APPDATA = origAppData;
   rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -98,8 +108,12 @@ describe("shouldRunFirstRun", () => {
 
   it("is false once a config file exists", () => {
     expect(shouldRunFirstRun(baseFlags())).toBe(true);
-    mkdirSync(join(tmpDir, "claude-wrap"), { recursive: true });
-    writeFileSync(join(tmpDir, "claude-wrap", "presets.yaml"), "presets:\n");
+    // Write to the same platform-specific dir beforeEach pointed at tmpDir.
+    const cfgDir = process.platform === "win32"
+      ? join(tmpDir, "AppData", "Roaming")
+      : tmpDir;
+    mkdirSync(join(cfgDir, "claude-wrap"), { recursive: true });
+    writeFileSync(join(cfgDir, "claude-wrap", "presets.yaml"), "presets:\n");
     expect(shouldRunFirstRun(baseFlags())).toBe(false);
   });
 });

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
+import { join } from "node:path";
 import {
   userConfigDir,
   userConfigPath,
@@ -30,8 +31,10 @@ describe("userConfigDir / userConfigPath", () => {
   it("uses XDG on Unix", () => {
     expect(userConfigDir("darwin")).toBe("/tmp/xdg-config");
     expect(userConfigDir("linux")).toBe("/tmp/xdg-config");
+    // join() is platform-aware, so build the expectation the same way the
+    // source does (forward slashes on Unix, backslashes on Windows).
     expect(userConfigPath("darwin")).toBe(
-      "/tmp/xdg-config/claude-wrap/presets.yaml",
+      join("/tmp/xdg-config", "claude-wrap", "presets.yaml"),
     );
   });
 

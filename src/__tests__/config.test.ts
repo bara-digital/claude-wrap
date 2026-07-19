@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, dirname } from "node:path";
 import { loadConfig, resolveClaudeBin, configExists, appendPreset, xdgConfigPath, type Config } from "../config";
 
 let tmpDir: string;
@@ -19,9 +19,15 @@ afterEach(() => {
 });
 
 function writeGlobalYaml(content: string): string {
-  const dir = join(tmpDir, ".config", "claude-wrap");
-  mkdirSync(dir, { recursive: true });
-  const path = join(dir, "presets.yaml");
+  // Point the platform-specific global config dir at tmpDir so userConfigPath()
+  // resolves inside it on every OS (%APPDATA% on Windows, XDG on Unix).
+  if (process.platform === "win32") {
+    process.env.APPDATA = join(tmpDir, "AppData", "Roaming");
+  } else {
+    process.env.XDG_CONFIG_HOME = join(tmpDir, ".config");
+  }
+  const path = xdgConfigPath();
+  mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content, "utf8");
   return path;
 }
@@ -332,8 +338,16 @@ describe("resolveClaudeBin", () => {
   });
 
   it("rejects paths under blocked prefixes", () => {
-    expect(() => resolveClaudeBin("/tmp/claude")).toThrow("is not allowed");
-    expect(() => resolveClaudeBin("/dev/claude")).toThrow("is not allowed");
+    // A temp/scratch-dir executable is blocked on every platform.
+    // /tmp is in the Unix blocklist; on Windows use the actual temp dir.
+    const blockedTemp = process.platform === "win32"
+      ? join(tmpdir(), "claude")
+      : "/tmp/claude";
+    expect(() => resolveClaudeBin(blockedTemp)).toThrow("is not allowed");
+    // device paths are blocked on Unix
+    if (process.platform !== "win32") {
+      expect(() => resolveClaudeBin("/dev/claude")).toThrow("is not allowed");
+    }
   });
 
   it("validates only the command, not its arguments", () => {
