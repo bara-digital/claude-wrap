@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve, dirname } from "node:path";
+import { join, dirname } from "node:path";
 import { loadConfig, resolveClaudeBin, configExists, appendPreset, xdgConfigPath, type Config } from "../config";
 
 let tmpDir: string;
