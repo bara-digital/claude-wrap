@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import type { Config } from "./config";
 import { resolveClaudeBin } from "./config";
 import { resolveEnv } from "./env";
+import { isWindows } from "./platform";
 
 interface PresetHealth {
   name: string;
@@ -17,14 +18,10 @@ interface PresetHealth {
 
 async function checkEndpoint(
   baseUrl: string,
-  authToken: string,
+  headers: Record<string, string>,
 ): Promise<{ reachable: boolean; status?: number; error?: string }> {
   const url = baseUrl.replace(/\/$/, "") + "/models";
   try {
-    const headers: Record<string, string> = {};
-    if (authToken) {
-      headers["x-api-key"] = authToken;
-    }
     const res = await fetch(url, {
       method: "GET",
       headers,
@@ -37,6 +34,23 @@ async function checkEndpoint(
   }
 }
 
+// Probe a preset's reachability, selecting the auth header that matches how the
+// preset authenticates: Bearer for auth_token, x-api-key for api_key.
+// (DEEP-SCAN 1.4 — doctor previously sent x-api-key for Bearer-only gateways,
+// producing false ✗ results. Exported for unit testing.)
+export async function probeEndpoint(
+  baseUrl: string,
+  envVars: Record<string, string>,
+): Promise<{ reachable: boolean; status?: number; error?: string }> {
+  const headers: Record<string, string> = {};
+  if (envVars.ANTHROPIC_AUTH_TOKEN) {
+    headers["Authorization"] = `Bearer ${envVars.ANTHROPIC_AUTH_TOKEN}`;
+  } else if (envVars.ANTHROPIC_API_KEY) {
+    headers["x-api-key"] = envVars.ANTHROPIC_API_KEY;
+  }
+  return checkEndpoint(baseUrl, headers);
+}
+
 export async function runDoctor(config: Config): Promise<void> {
   process.stdout.write("claude-wrap doctor\n\n");
 
@@ -45,23 +59,6 @@ export async function runDoctor(config: Config): Promise<void> {
     process.stdout.write("  No presets defined.\n");
     process.exit(0);
   }
-
-  const dotEnv = (() => {
-    const { readFileSync } = require("node:fs");
-    const { resolve, dirname, join } = require("node:path");
-    let dir = resolve(process.cwd());
-    for (;;) {
-      const candidate = join(dir, ".env");
-      try {
-        readFileSync(candidate, "utf8");
-        return candidate;
-      } catch {}
-      const parent = dirname(dir);
-      if (parent === dir) break;
-      dir = parent;
-    }
-    return null;
-  })();
 
   for (const name of names) {
     const preset = config.presets[name];
@@ -102,7 +99,7 @@ export async function runDoctor(config: Config): Promise<void> {
 
     if (envVars) {
       process.stdout.write(`    reach:   `);
-      const result = await checkEndpoint(envVars.ANTHROPIC_BASE_URL ?? preset.base_url, authToken);
+      const result = await probeEndpoint(envVars.ANTHROPIC_BASE_URL ?? preset.base_url, envVars);
       if (result.reachable) {
         const statusColor = result.status === 200 ? "\x1b[32m" : "\x1b[33m";
         process.stdout.write(`${statusColor}✓\x1b[0m HTTP ${result.status}\n`);
@@ -118,7 +115,7 @@ export async function runDoctor(config: Config): Promise<void> {
   process.stdout.write("---\n");
   const claudeBin = resolveClaudeBin(config.claude_bin);
   const cmd = claudeBin[0];
-  const versionCheck = spawnSync(cmd, ["--version"], { stdio: "pipe", timeout: 5000 });
+  const versionCheck = spawnSync(cmd, ["--version"], { stdio: "pipe", timeout: 5000, shell: isWindows() });
   if (versionCheck.status === 0) {
     const version = versionCheck.stdout.toString().trim().split("\n")[0];
     process.stdout.write(`  claude:   \x1b[32m✓\x1b[0m ${version}\n`);

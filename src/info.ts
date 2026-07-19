@@ -2,23 +2,23 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { xdgConfigPath, hasLocalConfig } from "./config";
+import { hasLocalConfig } from "./config";
+import { isWindows, userConfigPath, userStatePath } from "./platform";
 import { VERSION } from "./version";
 
 export function showInfo(config: {
   default?: string;
   presets: Record<string, unknown>;
 }): void {
-  const configPath = xdgConfigPath();
+  const configPath = userConfigPath();
   const localPath = hasLocalConfig();
-  const statePath =
-    (process.env.XDG_STATE_HOME ?? join(homedir(), ".local", "state")) +
-    "/claude-wrap/stats.json";
+  const statePath = userStatePath();
   const presetCount = Object.keys(config.presets).length;
 
   const claudeCheck = spawnSync("claude", ["--version"], {
     stdio: "pipe",
     timeout: 5000,
+    shell: isWindows(),
   });
   const claudeVer = claudeCheck.status === 0
     ? claudeCheck.stdout.toString().trim().split("\n")[0]

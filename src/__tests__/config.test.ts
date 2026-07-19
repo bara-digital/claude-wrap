@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { loadConfig, resolveClaudeBin, type Config } from "../config";
+import { join, dirname } from "node:path";
+import { loadConfig, resolveClaudeBin, configExists, appendPreset, xdgConfigPath, type Config } from "../config";
 
 let tmpDir: string;
 let origDir: string;
@@ -19,9 +19,15 @@ afterEach(() => {
 });
 
 function writeGlobalYaml(content: string): string {
-  const dir = join(tmpDir, ".config", "claude-wrap");
-  mkdirSync(dir, { recursive: true });
-  const path = join(dir, "presets.yaml");
+  // Point the platform-specific global config dir at tmpDir so userConfigPath()
+  // resolves inside it on every OS (%APPDATA% on Windows, XDG on Unix).
+  if (process.platform === "win32") {
+    process.env.APPDATA = join(tmpDir, "AppData", "Roaming");
+  } else {
+    process.env.XDG_CONFIG_HOME = join(tmpDir, ".config");
+  }
+  const path = xdgConfigPath();
+  mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content, "utf8");
   return path;
 }
@@ -332,8 +338,16 @@ describe("resolveClaudeBin", () => {
   });
 
   it("rejects paths under blocked prefixes", () => {
-    expect(() => resolveClaudeBin("/tmp/claude")).toThrow("is not allowed");
-    expect(() => resolveClaudeBin("/dev/claude")).toThrow("is not allowed");
+    // A temp/scratch-dir executable is blocked on every platform.
+    // /tmp is in the Unix blocklist; on Windows use the actual temp dir.
+    const blockedTemp = process.platform === "win32"
+      ? join(tmpdir(), "claude")
+      : "/tmp/claude";
+    expect(() => resolveClaudeBin(blockedTemp)).toThrow("is not allowed");
+    // device paths are blocked on Unix
+    if (process.platform !== "win32") {
+      expect(() => resolveClaudeBin("/dev/claude")).toThrow("is not allowed");
+    }
   });
 
   it("validates only the command, not its arguments", () => {
@@ -341,5 +355,97 @@ describe("resolveClaudeBin", () => {
       "npx",
       "@anthropic-ai/claude-code",
     ]);
+  });
+});
+
+describe("resolveClaudeBin (Windows)", () => {
+  it("allows a bare command with a Windows extension", () => {
+    expect(resolveClaudeBin("claude.cmd", "win32")).toEqual(["claude.cmd"]);
+  });
+
+  it("allows an absolute path whose basename (sans ext) is allowlisted", () => {
+    expect(
+      resolveClaudeBin("C:\\Program Files\\claude\\claude.exe", "win32"),
+    ).toEqual(["C:\\Program Files\\claude\\claude.exe"]);
+  });
+
+  it("rejects a temp-located executable", () => {
+    expect(() =>
+      resolveClaudeBin("C:\\Users\\me\\AppData\\Local\\Temp\\runme.exe", "win32"),
+    ).toThrow("is not allowed");
+  });
+
+  it("rejects a relative Windows path", () => {
+    expect(() => resolveClaudeBin("..\\x\\claude.cmd", "win32")).toThrow(
+      "relative paths",
+    );
+  });
+
+  it("rejects a basename not on the allowlist", () => {
+    expect(() => resolveClaudeBin("C:\\tools\\evil.exe", "win32")).toThrow(
+      "must be one of",
+    );
+  });
+});
+
+describe("xdgConfigPath (back-compat alias)", () => {
+  it("resolves to a presets.yaml path", () => {
+    expect(xdgConfigPath()).toContain("presets.yaml");
+    expect(xdgConfigPath()).toContain("claude-wrap");
+  });
+});
+
+describe("configExists", () => {
+  it("returns false when no config is present", () => {
+    process.env.XDG_CONFIG_HOME = join(tmpDir, ".config");
+    expect(configExists()).toBe(false);
+  });
+
+  it("returns true once a config file exists", () => {
+    process.env.XDG_CONFIG_HOME = join(tmpDir, ".config");
+    writeGlobalYaml(
+      "presets:\n  a:\n    base_url: https://example.com\n",
+    );
+    expect(configExists()).toBe(true);
+  });
+});
+
+describe("appendPreset", () => {
+  it("adds a preset and preserves comments elsewhere in the file", () => {
+    const raw = `# header comment
+default: anthropic
+
+presets:
+  # existing preset comment
+  anthropic:
+    base_url: https://api.anthropic.com/v1
+    login: true
+`;
+    const updated = appendPreset(raw, "openai", {
+      base_url: "https://openrouter.ai/api/v1",
+      api_key: "sk-test",
+    });
+    // comments preserved
+    expect(updated).toContain("# header comment");
+    expect(updated).toContain("# existing preset comment");
+    expect(updated).toContain("default: anthropic");
+    // new preset present
+    expect(updated).toContain("openai:");
+    expect(updated).toContain("sk-test");
+  });
+
+  it("throws if the preset name already exists", () => {
+    const raw = "presets:\n  anthropic:\n    base_url: https://x\n";
+    expect(() =>
+      appendPreset(raw, "anthropic", { base_url: "https://y" }),
+    ).toThrow("already exists");
+  });
+
+  it("creates a presets: mapping when missing", () => {
+    const updated = appendPreset("default: foo\n", "new", {
+      base_url: "https://example.com",
+    });
+    expect(updated).toContain("presets:");
+    expect(updated).toContain("new:");
   });
 });

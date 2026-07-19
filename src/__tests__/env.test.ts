@@ -200,6 +200,28 @@ describe("resolveEnv", () => {
     expect(env.OTEL_SERVICE_NAME).toBe("claude-wrap");
   });
 
+  it("rejects protected env vars (PATH/LD_*/HOME) in extra_env", () => {
+    const preset: Preset = {
+      model: "gpt-4o",
+      base_url: "https://example.com",
+      extra_env: {
+        PATH: "/evil/bin",
+      },
+    };
+    expect(() => resolveEnv(preset)).toThrow(/protected environment variable/i);
+  });
+
+  it("rejects LD_PRELOAD override in extra_env", () => {
+    const preset: Preset = {
+      model: "gpt-4o",
+      base_url: "https://example.com",
+      extra_env: {
+        LD_PRELOAD: "/evil.so",
+      },
+    };
+    expect(() => resolveEnv(preset)).toThrow(/protected environment variable/i);
+  });
+
   it("handles .env with comments and quotes", () => {
     writeFileSync(
       join(tmpDir, ".env"),

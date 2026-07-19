@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import type { Config, WebConfig } from "./config";
 import { buildClaudeInvocation, type ClaudeInvocation } from "./launcher";
 import { resolveVar } from "./env";
+import { isWsl } from "./platform";
 
 export interface WebOptions {
   host?: string;
@@ -113,10 +114,30 @@ export function dependencyInstallHint(platform: string): string {
       "  #   https://github.com/tsl0922/ttyd/releases",
     ].join("\n");
   }
+  if (platform === "win32") {
+    return [
+      "  Native Windows: tmux/ttyd aren't available here. Run claude-wrap under WSL,",
+      "  then install there:",
+      "    sudo apt-get install -y tmux",
+      "    # ttyd: https://github.com/tsl0922/ttyd/releases",
+    ].join("\n");
+  }
   return [
     "  tmux — https://github.com/tmux/tmux",
     "  ttyd — https://github.com/tsl0922/ttyd/releases",
   ].join("\n");
+}
+
+/**
+ * `--web` needs tmux + ttyd, which don't run on native Windows. It DOES work
+ * under WSL (those tools exist there), so callers should still allow it in
+ * WSL. Pure + parameterized for unit testing.
+ */
+export function webUnsupportedOnNativeWindows(
+  platform: string = process.platform,
+  wsl: boolean = isWsl(),
+): boolean {
+  return platform === "win32" && !wsl;
 }
 
 function socketFlag(presetName: string): string {
@@ -151,6 +172,15 @@ export async function runWeb(
   skipBare: boolean,
   webOpts: WebOptions,
 ): Promise<void> {
+  // 0. Platform gate: tmux/ttyd are unavailable on native Windows.
+  if (webUnsupportedOnNativeWindows()) {
+    process.stderr.write(
+      "claude-wrap: --web is not supported on native Windows (it needs tmux + ttyd).\n" +
+        "  Run claude-wrap under WSL, or use the terminal launch (`claude-wrap`).\n",
+    );
+    process.exit(1);
+  }
+
   // 1. Dependency check
   const tmuxOk = spawnSync("which", ["tmux"], { stdio: "pipe" }).status === 0;
   const ttydOk = spawnSync("which", ["ttyd"], { stdio: "pipe" }).status === 0;

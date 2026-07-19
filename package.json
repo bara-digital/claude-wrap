@@ -1,6 +1,6 @@
 {
   "name": "claude-wrap",
-  "version": "0.7.0",
+  "version": "0.9.0",
   "description": "Multi-model launcher for Claude Code — pick any LLM backend via presets",
   "type": "module",
   "license": "MIT",
@@ -21,7 +21,7 @@
     "claude-wrap": "./dist/claude-wrap"
   },
   "scripts": {
-    "build": "bun build ./src/index.ts --compile --outfile dist/claude-wrap",
+    "build": "bun run scripts/build.ts",
     "dev": "bun run src/index.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit"

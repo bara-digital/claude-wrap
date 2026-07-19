@@ -4,6 +4,7 @@ import {
   buildTtydArgs,
   generateCredential,
   dependencyInstallHint,
+  webUnsupportedOnNativeWindows,
   type WebOptions,
 } from "../web";
 import type { WebConfig } from "../config";
@@ -168,5 +169,20 @@ describe("dependencyInstallHint", () => {
 
   it("returns generic instructions on unknown platforms", () => {
     expect(dependencyInstallHint("win32")).toContain("tmux");
+  });
+});
+
+describe("webUnsupportedOnNativeWindows", () => {
+  it("is true on native Windows (no WSL)", () => {
+    expect(webUnsupportedOnNativeWindows("win32", false)).toBe(true);
+  });
+
+  it("is false on Windows under WSL", () => {
+    expect(webUnsupportedOnNativeWindows("win32", true)).toBe(false);
+  });
+
+  it("is false on macOS and Linux", () => {
+    expect(webUnsupportedOnNativeWindows("darwin", false)).toBe(false);
+    expect(webUnsupportedOnNativeWindows("linux", false)).toBe(false);
   });
 });

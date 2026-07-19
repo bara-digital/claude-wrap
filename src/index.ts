@@ -2,7 +2,9 @@ import { writeFileSync, existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { loadConfig, getInitTemplate, xdgConfigPath, setDefault, removePreset, hasLocalConfig } from "./config";
+import { loadConfig, getInitTemplate, xdgConfigPath, setDefault, removePreset, hasLocalConfig, configExists } from "./config";
+import { runSetup } from "./setup";
+import { defaultEditor } from "./platform";
 import { pickPreset } from "./picker";
 import { execClaude, dryRun } from "./launcher";
 import { runWeb, webDryRun } from "./web";
@@ -28,7 +30,7 @@ Wrapper flags:
   --init --force         Overwrite existing config
   --local                Target local .claude-wrap.yaml instead of global config
   --list, -l             List all available presets (no launch)
-  --add                  Interactive wizard to add a new preset
+  --add                  Interactive wizard: pick a provider, add a preset
   --remove <name>        Delete a preset from config
   --edit <name>          Open config at the preset location in \$EDITOR
   --set-default <name>   Set the default preset from CLI
@@ -63,7 +65,7 @@ Config discovery:
   3. Local (merged):  walk-up from CWD for .claude-wrap.yaml
 
 Examples:
-  claude-wrap                          # Interactive picker
+  claude-wrap                          # First run → guided setup wizard
   claude-wrap --preset openai          # Use 'openai' preset
   claude-wrap -p groq -- --model llama # Forward args to claude
   claude-wrap --dry-run                # Debug preset resolution
@@ -357,6 +359,35 @@ function parseFlags(): {
   return result;
 }
 
+export type Flags = ReturnType<typeof parseFlags>;
+
+/**
+ * Pure: is this a "launch intent" (no config-creating / management subcommand)?
+ * Extracted from main() so the first-run decision is unit-testable.
+ * Note: `--local` is intentionally NOT excluded — a bare `claude-wrap --local`
+ * with no config should also drop into the wizard (it writes .claude-wrap.yaml).
+ */
+export function isLaunchIntent(flags: Flags): boolean {
+  return (
+    !flags.init &&
+    !flags.add &&
+    !flags.editPreset &&
+    !flags.removePreset &&
+    !flags.configEdit &&
+    !flags.list &&
+    !flags.doctor &&
+    !flags.stats &&
+    !flags.info &&
+    !flags.update &&
+    !flags.completion &&
+    !flags.setDefaultPreset
+  );
+}
+
+export function shouldRunFirstRun(flags: Flags): boolean {
+  return isLaunchIntent(flags) && !configExists(flags.config);
+}
+
 function doConfigEdit(explicitPath?: string, local?: boolean): void {
   const path = explicitPath ?? (local ? join(process.cwd(), ".claude-wrap.yaml") : xdgConfigPath());
 
@@ -383,7 +414,7 @@ presets:
     }
   }
 
-  const editor = process.env.EDITOR || process.env.VISUAL || "vim";
+  const editor = process.env.EDITOR || process.env.VISUAL || defaultEditor();
 
   const child = spawnSync(editor, [path], { stdio: "inherit" });
   process.exit(child.status ?? 0);
@@ -460,7 +491,7 @@ function doEdit(name: string, explicitPath?: string): void {
     }
   }
 
-  const editor = process.env.EDITOR || process.env.VISUAL || "vim";
+  const editor = process.env.EDITOR || process.env.VISUAL || defaultEditor();
   const isVim = /(?:^|\/)([gn]?vim?|vi)$/.test(editor);
   const child = isVim
     ? spawnSync(editor, [`+${lineno}`, path], { stdio: "inherit" })
@@ -600,6 +631,23 @@ async function main(): Promise<void> {
     doInit(flags.initForce, flags.local);
   }
 
+  // First-run onboarding: if there's no config and this is a launch intent
+  // (no config-creating / management subcommand was given), drop straight into
+  // the guided setup wizard instead of erroring out.
+  if (shouldRunFirstRun(flags)) {
+    const setup = await runSetup({
+      explicitPath: flags.config,
+      local: flags.local,
+    });
+    if (setup.presetName === null) process.exit(0);
+    if (setup.launch) {
+      flags.preset = setup.presetName;
+      if (setup.launchMode === "web") flags.web = true;
+    } else {
+      process.exit(0);
+    }
+  }
+
   const config = loadConfig(flags.config);
 
   if (flags.info) {
@@ -668,6 +716,7 @@ async function main(): Promise<void> {
       );
       process.exit(0);
     }
+    recordLaunch(presetName);
     await runWeb(
       config,
       presetName,
@@ -704,10 +753,13 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
+  recordLaunch(presetName);
   execClaude(config, presetName, envVars, flags.args, isAnthropic, skipBare);
 }
 
-main().catch((err) => {
-  process.stderr.write(`claude-wrap: ${err.message}\n`);
-  process.exit(1);
-});
+if (import.meta.main) {
+  main().catch((err) => {
+    process.stderr.write(`claude-wrap: ${err.message}\n`);
+    process.exit(1);
+  });
+}

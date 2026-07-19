@@ -26,6 +26,15 @@ $ claude-wrap
 curl -fsSL https://raw.githubusercontent.com/bara-digital/claude-wrap/master/install.sh | bash
 ```
 
+**Windows** (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/bara-digital/claude-wrap/master/install.ps1 | iex
+```
+
+Or download `claude-wrap-win32-x64.exe` from
+[Releases](https://github.com/bara-digital/claude-wrap/releases) and add it to your PATH.
+
 **Manual download** — grab the binary from [Releases](https://github.com/bara-digital/claude-wrap/releases).
 
 **From source** (requires [Bun](https://bun.sh)):
@@ -40,12 +49,18 @@ cp dist/claude-wrap ~/.local/bin/claude-wrap
 
 ## Quick start
 
-```bash
-# Generate your config (anthropic with login by default)
-claude-wrap --init
+**First run?** Just run `claude-wrap` with no config — it opens a guided setup
+wizard that picks a provider, writes a working preset, and offers to launch
+Claude Code immediately (terminal or browser). Power users can still use
+`--init` / `--add` directly.
 
-# Add a preset interactively
-claude-wrap --add
+```bash
+# No config yet? This launches the interactive setup wizard automatically:
+claude-wrap
+
+# Or scaffold a template / add a preset by hand:
+claude-wrap --init          # template config (anthropic + login)
+claude-wrap --add           # guided wizard to add any provider
 
 # Launch Claude Code with the interactive picker
 claude-wrap
@@ -62,7 +77,7 @@ claude-wrap --web -p deepseek
 
 `claude-wrap` reads config from two locations (merged together):
 
-1. **Global:** `~/.config/claude-wrap/presets.yaml` (respects `$XDG_CONFIG_HOME`)
+1. **Global:** `~/.config/claude-wrap/presets.yaml` on macOS/Linux (respects `$XDG_CONFIG_HOME`); `%APPDATA%/claude-wrap/presets.yaml` on Windows
 2. **Local:** `.claude-wrap.yaml` — walked up from CWD (project-specific overrides)
 
 When the same preset name exists in both, the local config wins entirely.
@@ -114,7 +129,7 @@ presets:
 | `--init --local` | Create project-level `.claude-wrap.yaml` |
 | `--local` | Target local config (`--config-edit --local`, etc.) |
 | `--list`, `-l` | List all presets |
-| `--add` | Interactive preset wizard |
+| `--add` | Interactive wizard: pick a provider from the catalog, add a preset |
 | `--remove <name>` | Delete a preset |
 | `--edit <name>` | Open config at preset location in `$EDITOR` |
 | `--set-default <name>` | Set default preset |
@@ -153,14 +168,21 @@ claude-wrap -p deepseek -- --add-dir /path/to/code
 
 ### Add interactively
 
+`--add` opens the same guided wizard as first-run: choose a provider from the
+built-in catalog (Anthropic, DeepSeek, OpenRouter, Groq, Ollama, or a custom
+gateway), paste your API key (masked), then optionally set it as default, verify
+it, and launch.
+
 ```bash
 $ claude-wrap --add
 
-◇  Preset name:  openai
-◇  Model:        gpt-4o
-◇  Base URL:     https://openrouter.ai/api/v1
-◇  API key:      $OPENROUTER_API_KEY
-  Preset 'openai' added
+◆  Choose a provider:  OpenRouter
+◇  Preset name:        openrouter
+◆  API key:            ********
+  Preset 'openrouter' written to ~/.config/claude-wrap/presets.yaml
+◆  Make this the default preset?  Yes
+✓  Reachable — HTTP 200
+◆  Launch now?  Terminal
 ```
 
 ### Remove a preset
@@ -351,6 +373,10 @@ sudo apt-get install -y tmux
 #   https://github.com/tsl0922/ttyd/releases
 ```
 
+> **Windows:** `--web` needs tmux + ttyd, which don't run on native Windows. It is
+> disabled there with a "run under WSL" message. Use the terminal launch
+> (`claude-wrap`) on Windows, or run `claude-wrap --web` from within WSL.
+
 ### Configuration
 
 Settings live under an optional top-level `web:` block; CLI flags override them.
@@ -440,6 +466,8 @@ bun run build     # compile binary
 ```
 
 PRs welcome. Run `bun run typecheck && bun test` before pushing. Commit messages follow [conventional commits](https://www.conventionalcommits.org/). See the [PR template](.github/pull_request_template.md) for the checklist.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the module-by-module control/data flow, [docs/DEEP-SCAN.md](docs/DEEP-SCAN.md) for bugs/risks/coverage gaps, and [docs/adr](docs/adr) for the decision records behind each design choice.
 
 ## License
 

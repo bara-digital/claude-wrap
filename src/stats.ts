@@ -1,10 +1,9 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from "node:fs";
-import { join } from "node:path";
-import { homedir } from "node:os";
+import { dirname } from "node:path";
+import { userStatePath } from "./platform";
 
 function statsPath(): string {
-  const xdg = process.env.XDG_STATE_HOME ?? join(homedir(), ".local", "state");
-  return join(xdg, "claude-wrap", "stats.json");
+  return userStatePath();
 }
 
 function loadStats(): Record<string, number> {
@@ -20,7 +19,7 @@ function loadStats(): Record<string, number> {
 
 function saveStats(stats: Record<string, number>): void {
   const path = statsPath();
-  const dir = path.substring(0, path.lastIndexOf("/"));
+  const dir = dirname(path);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
