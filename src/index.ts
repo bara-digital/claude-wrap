@@ -358,6 +358,35 @@ function parseFlags(): {
   return result;
 }
 
+export type Flags = ReturnType<typeof parseFlags>;
+
+/**
+ * Pure: is this a "launch intent" (no config-creating / management subcommand)?
+ * Extracted from main() so the first-run decision is unit-testable.
+ * Note: `--local` is intentionally NOT excluded — a bare `claude-wrap --local`
+ * with no config should also drop into the wizard (it writes .claude-wrap.yaml).
+ */
+export function isLaunchIntent(flags: Flags): boolean {
+  return (
+    !flags.init &&
+    !flags.add &&
+    !flags.editPreset &&
+    !flags.removePreset &&
+    !flags.configEdit &&
+    !flags.list &&
+    !flags.doctor &&
+    !flags.stats &&
+    !flags.info &&
+    !flags.update &&
+    !flags.completion &&
+    !flags.setDefaultPreset
+  );
+}
+
+export function shouldRunFirstRun(flags: Flags): boolean {
+  return isLaunchIntent(flags) && !configExists(flags.config);
+}
+
 function doConfigEdit(explicitPath?: string, local?: boolean): void {
   const path = explicitPath ?? (local ? join(process.cwd(), ".claude-wrap.yaml") : xdgConfigPath());
 
@@ -604,21 +633,7 @@ async function main(): Promise<void> {
   // First-run onboarding: if there's no config and this is a launch intent
   // (no config-creating / management subcommand was given), drop straight into
   // the guided setup wizard instead of erroring out.
-  const isLaunchIntent =
-    !flags.init &&
-    !flags.add &&
-    !flags.editPreset &&
-    !flags.removePreset &&
-    !flags.configEdit &&
-    !flags.local &&
-    !flags.list &&
-    !flags.doctor &&
-    !flags.stats &&
-    !flags.info &&
-    !flags.update &&
-    !flags.completion &&
-    !flags.setDefaultPreset;
-  if (!configExists(flags.config) && isLaunchIntent) {
+  if (shouldRunFirstRun(flags)) {
     const setup = await runSetup({
       explicitPath: flags.config,
       local: flags.local,
@@ -741,7 +756,9 @@ async function main(): Promise<void> {
   execClaude(config, presetName, envVars, flags.args, isAnthropic, skipBare);
 }
 
-main().catch((err) => {
-  process.stderr.write(`claude-wrap: ${err.message}\n`);
-  process.exit(1);
-});
+if (import.meta.main) {
+  main().catch((err) => {
+    process.stderr.write(`claude-wrap: ${err.message}\n`);
+    process.exit(1);
+  });
+}

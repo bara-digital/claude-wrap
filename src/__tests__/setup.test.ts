@@ -59,6 +59,11 @@ describe("buildPreset", () => {
     expect(p.model).toBe("anthropic/claude-opus");
   });
 
+  it("empty modelOverride falls back to the catalog default (wizard model prompt)", () => {
+    const p = buildPreset(openrouter, { storeAsVar: true, modelOverride: "" });
+    expect(p.model).toBe(openrouter.defaultModel);
+  });
+
   it("omits model when catalog has none and no override", () => {
     const entry: ProviderCatalogEntry = {
       id: "x",

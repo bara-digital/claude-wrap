@@ -135,6 +135,8 @@ export async function runSetup(opts: {
     : catalogEntry.baseUrl;
   if (baseUrl === null) return aborted();
 
+  const entry: ProviderCatalogEntry = { ...catalogEntry, baseUrl };
+
   // 3. Preset name (default to the catalog id).
   const name = await text({
     message: "Preset name:",
@@ -154,6 +156,14 @@ export async function runSetup(opts: {
     cancel(`Preset '${name}' already exists.`);
     return { presetName: null, launch: false, launchMode: "terminal" };
   }
+
+  // 3b. Model (optional — pre-filled from the catalog; empty = catalog default).
+  const model = await text({
+    message: "Model (optional — leave empty to use the catalog default):",
+    initialValue: entry.defaultModel ?? "",
+    placeholder: entry.defaultModel ?? "claude-sonnet-4-20250514",
+  });
+  if (isCancel(model)) return aborted();
 
   // 4. Credentials (masked — never echoed to stdout).
   let keyValue: string | undefined;
@@ -179,6 +189,10 @@ export async function runSetup(opts: {
         log.info(
           `Stored as $${catalogEntry.envVar}. Add to your shell: export ${catalogEntry.envVar}='<your key>'`,
         );
+      } else {
+        log.info(
+          `Key stored in plaintext in your config (${path}). To use a $VAR reference instead, re-run and choose 'No'.`,
+        );
       }
     }
   } else if (catalogEntry.authKind === "login") {
@@ -188,32 +202,33 @@ export async function runSetup(opts: {
   }
 
   // 5. Write the preset (document model keeps any existing comments).
-  const entry: ProviderCatalogEntry = { ...catalogEntry, baseUrl };
-  const preset = buildPreset(entry, { keyValue, storeAsVar });
+  const preset = buildPreset(entry, {
+    keyValue,
+    storeAsVar,
+    modelOverride: model || undefined,
+  });
   ensureConfigDir(path);
   writeFileSync(path, appendPreset(raw, name, preset), "utf8");
   log.success(`Preset '${name}' written to ${path}`);
 
-  // 6. Make it the default?
+  // 6. Make it the default? (cancel = skip — the preset is already saved)
   const makeDefault = await confirm({
     message: "Make this the default preset?",
     initialValue: true,
   });
-  if (isCancel(makeDefault)) return aborted();
-  if (makeDefault) {
+  if (!isCancel(makeDefault) && makeDefault) {
     const written = readConfigRaw(path);
     const names = Object.keys((parse(written)?.presets ?? {}) as Record<string, unknown>);
     writeFileSync(path, setDefault(written, name, names), "utf8");
     log.success(`'${name}' is now the default.`);
   }
 
-  // 7. Verify reachability + auth.
+  // 7. Verify reachability + auth. (cancel = skip — the preset is already saved)
   const verify = await confirm({
     message: "Verify it now (reachability + auth)?",
     initialValue: true,
   });
-  if (isCancel(verify)) return aborted();
-  if (verify) {
+  if (!isCancel(verify) && verify) {
     try {
       const envVars = resolveEnv(preset);
       if (catalogEntry.authKind === "login") {
