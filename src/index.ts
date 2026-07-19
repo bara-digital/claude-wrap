@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { loadConfig, getInitTemplate, xdgConfigPath, setDefault, removePreset, hasLocalConfig, configExists } from "./config";
 import { runSetup } from "./setup";
+import { defaultEditor } from "./platform";
 import { pickPreset } from "./picker";
 import { execClaude, dryRun } from "./launcher";
 import { runWeb, webDryRun } from "./web";
@@ -413,7 +414,7 @@ presets:
     }
   }
 
-  const editor = process.env.EDITOR || process.env.VISUAL || "vim";
+  const editor = process.env.EDITOR || process.env.VISUAL || defaultEditor();
 
   const child = spawnSync(editor, [path], { stdio: "inherit" });
   process.exit(child.status ?? 0);
@@ -490,7 +491,7 @@ function doEdit(name: string, explicitPath?: string): void {
     }
   }
 
-  const editor = process.env.EDITOR || process.env.VISUAL || "vim";
+  const editor = process.env.EDITOR || process.env.VISUAL || defaultEditor();
   const isVim = /(?:^|\/)([gn]?vim?|vi)$/.test(editor);
   const child = isVim
     ? spawnSync(editor, [`+${lineno}`, path], { stdio: "inherit" })

@@ -24,6 +24,7 @@ Each ADR captures **one decision, why it was made, and the alternatives rejected
 | [0014](0014-cli-arg-forwarding-boundary.md) | CLI argument forwarding boundary (wrapper flags vs passthrough) | accepted |
 | [0015](0015-web-ui-tmux-ttyd.md) | Web UI via tmux + ttyd — browser access to a persistent session | accepted |
 | [0016](0016-onboarding-wizard.md) | First-run onboarding wizard — provider catalog, guided setup, close-the-loop | accepted |
+| [0017](0017-windows-support.md) | Windows support — cross-platform paths, binary discovery, claude_bin guard, exe release | accepted |
 
 ## How they relate
 
@@ -35,3 +36,4 @@ Each ADR captures **one decision, why it was made, and the alternatives rejected
 - **CLI surface:** 0014 (arg-forwarding boundary).
 - **Remote access:** 0015 (web UI via tmux + ttyd) wraps the launch path (0001/0006) in a browser-exposed terminal, reusing the shared bare-injection rule from 0006.
 - **Onboarding:** 0016 (first-run wizard) sits in front of the launch spine (0001/0006) and reuses the catalog + comment-preserving config writes (0003/0004) and the reachability probe (0015's `doctor`/`probeEndpoint`).
+- **Cross-platform:** 0017 (Windows support) generalizes the file-location model of 0012 and the binary guard of 0007 to Windows, reusing the launch spine (0001/0006) and release pipeline (0009).

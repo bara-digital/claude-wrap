@@ -2,11 +2,17 @@ import { writeFileSync, chmodSync, existsSync, mkdirSync, renameSync, rmSync } f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { VERSION } from "./version";
+import { isWindows } from "./platform";
 
-function getPlatform(): string {
-  const os = process.platform; // "darwin" | "linux"
-  const arch = process.arch;   // "arm64" | "x64"
-  return `${os}-${arch}`;
+export function getPlatform(platform: string = process.platform): string {
+  const arch = process.arch; // "arm64" | "x64"
+  return `${platform}-${arch}`;
+}
+
+/** Release asset name for a platform: `claude-wrap-${platform}` (+ `.exe` on Windows). */
+export function binaryName(platform: string = getPlatform()): string {
+  const ext = platform === "win32" || platform.startsWith("win32-") ? ".exe" : "";
+  return `claude-wrap-${platform}${ext}`;
 }
 
 function getCurrentBinaryPath(): string {
@@ -51,7 +57,7 @@ async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
 
 export async function runUpdate(): Promise<void> {
   const platform = getPlatform();
-  const binaryName = `claude-wrap-${platform}`;
+  const assetName = binaryName(platform);
 
   process.stdout.write(`  Current: v${VERSION}\n`);
 
@@ -68,7 +74,7 @@ export async function runUpdate(): Promise<void> {
     process.exit(0);
   }
 
-  const asset = release.assets.find((a) => a.name === binaryName);
+  const asset = release.assets.find((a) => a.name === assetName);
   if (!asset) {
     process.stderr.write(`  No binary found for ${platform} in ${release.tag}\n`);
     process.exit(1);
@@ -97,7 +103,7 @@ export async function runUpdate(): Promise<void> {
   const tmpPath = join(tmpDir, `claude-wrap-${release.tag}`);
   const buf = Buffer.from(await response.arrayBuffer());
   writeFileSync(tmpPath, buf);
-  chmodSync(tmpPath, 0o755);
+  if (!isWindows()) chmodSync(tmpPath, 0o755);
   process.stdout.write("done.\n");
 
   // Verify the new binary
@@ -117,10 +123,16 @@ export async function runUpdate(): Promise<void> {
   try {
     renameSync(tmpPath, currentPath);
   } catch {
-    // Permission denied — leave the verified binary in place so the
-    // printed command actually works, and tell the user how to finish.
+    // Permission denied (or, on Windows, the running .exe is locked) — leave
+    // the verified binary in place so the printed command actually works.
     process.stdout.write("permission denied.\n");
-    process.stdout.write(`  Run: sudo mv "${tmpPath}" "${currentPath}"\n`);
+    if (isWindows()) {
+      process.stdout.write(
+        `  Stop claude-wrap, then: move "${tmpPath}" "${currentPath}"\n`,
+      );
+    } else {
+      process.stdout.write(`  Run: sudo mv "${tmpPath}" "${currentPath}"\n`);
+    }
     process.exit(1);
   }
   process.stdout.write("done.\n");

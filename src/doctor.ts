@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import type { Config } from "./config";
 import { resolveClaudeBin } from "./config";
 import { resolveEnv } from "./env";
+import { isWindows } from "./platform";
 
 interface PresetHealth {
   name: string;
@@ -114,7 +115,7 @@ export async function runDoctor(config: Config): Promise<void> {
   process.stdout.write("---\n");
   const claudeBin = resolveClaudeBin(config.claude_bin);
   const cmd = claudeBin[0];
-  const versionCheck = spawnSync(cmd, ["--version"], { stdio: "pipe", timeout: 5000 });
+  const versionCheck = spawnSync(cmd, ["--version"], { stdio: "pipe", timeout: 5000, shell: isWindows() });
   if (versionCheck.status === 0) {
     const version = versionCheck.stdout.toString().trim().split("\n")[0];
     process.stdout.write(`  claude:   \x1b[32m✓\x1b[0m ${version}\n`);

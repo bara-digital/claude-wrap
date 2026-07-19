@@ -26,6 +26,15 @@ $ claude-wrap
 curl -fsSL https://raw.githubusercontent.com/bara-digital/claude-wrap/master/install.sh | bash
 ```
 
+**Windows** (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/bara-digital/claude-wrap/master/install.ps1 | iex
+```
+
+Or download `claude-wrap-win32-x64.exe` from
+[Releases](https://github.com/bara-digital/claude-wrap/releases) and add it to your PATH.
+
 **Manual download** — grab the binary from [Releases](https://github.com/bara-digital/claude-wrap/releases).
 
 **From source** (requires [Bun](https://bun.sh)):
@@ -68,7 +77,7 @@ claude-wrap --web -p deepseek
 
 `claude-wrap` reads config from two locations (merged together):
 
-1. **Global:** `~/.config/claude-wrap/presets.yaml` (respects `$XDG_CONFIG_HOME`)
+1. **Global:** `~/.config/claude-wrap/presets.yaml` on macOS/Linux (respects `$XDG_CONFIG_HOME`); `%APPDATA%/claude-wrap/presets.yaml` on Windows
 2. **Local:** `.claude-wrap.yaml` — walked up from CWD (project-specific overrides)
 
 When the same preset name exists in both, the local config wins entirely.
@@ -363,6 +372,10 @@ sudo apt-get install -y tmux
 # ttyd isn't in most distro repos — grab a release:
 #   https://github.com/tsl0922/ttyd/releases
 ```
+
+> **Windows:** `--web` needs tmux + ttyd, which don't run on native Windows. It is
+> disabled there with a "run under WSL" message. Use the terminal launch
+> (`claude-wrap`) on Windows, or run `claude-wrap --web` from within WSL.
 
 ### Configuration
 

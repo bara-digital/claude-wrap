@@ -1,7 +1,13 @@
 import { parse, parseDocument, YAMLMap } from "yaml";
 import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
-import { homedir } from "node:os";
+import * as nodePath from "node:path";
+import {
+  userConfigPath,
+  isBlockedBinPath,
+  stripCmdExt,
+  isWindows,
+} from "./platform";
 
 export interface Preset {
   description?: string;
@@ -30,10 +36,12 @@ export interface Config {
   presets: Record<string, Preset>;
 }
 
+/**
+ * Kept for backward compatibility with external callers/tests that referenced
+ * the old XDG-specific name. Delegates to the cross-platform helper.
+ */
 export function xdgConfigPath(): string {
-  const xdg =
-    process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
-  return join(xdg, "claude-wrap", "presets.yaml");
+  return userConfigPath();
 }
 
 export function hasLocalConfig(): string | null {
@@ -41,7 +49,7 @@ export function hasLocalConfig(): string | null {
 }
 
 export function configExists(explicitPath?: string): boolean {
-  return existsSync(explicitPath ?? xdgConfigPath());
+  return existsSync(explicitPath ?? userConfigPath());
 }
 
 function walkUp(
@@ -202,7 +210,7 @@ function validateConfig(raw: Record<string, unknown>, path: string): Config {
 }
 
 export function loadConfig(explicitPath?: string): Config {
-  const globalPath = explicitPath ?? xdgConfigPath();
+  const globalPath = explicitPath ?? userConfigPath();
 
   let global: Config;
   try {
@@ -246,37 +254,51 @@ export function loadConfig(explicitPath?: string): Config {
 
 export function resolveClaudeBin(
   claudeBin: string | string[] | undefined,
+  platform: string = process.platform,
 ): string[] {
   if (claudeBin === undefined) return ["claude"];
   if (typeof claudeBin === "string") {
-    validateBinName(claudeBin);
+    validateBinName(claudeBin, platform);
     return [claudeBin];
   }
   if (!Array.isArray(claudeBin) || claudeBin.length === 0) return ["claude"];
-  validateBinName(claudeBin[0]);
+  validateBinName(claudeBin[0], platform);
   return claudeBin;
 }
 
 const ALLOWED_BINS = ["claude", "npx", "node", "bun"];
-const BLOCKED_BIN_PREFIXES = ["/tmp", "/var/tmp", "/dev"];
 
-function validateBinName(cmd: string): void {
+/**
+ * Validate a `claude_bin` entry. Platform-aware:
+ *  - absolute paths are detected with isAbsolute (handles `C:\` and `\\` on Windows)
+ *  - Windows temp/device paths are blocked via isBlockedBinPath
+ *  - the basename is compared against ALLOWED_BINS after stripping a Windows
+ *    command extension (.cmd/.exe/.ps1), so `claude.cmd` is accepted
+ *  - relative paths are rejected on every platform (a cloned repo could ship
+ *    an executable and point claude_bin at it)
+ */
+export function validateBinName(
+  cmd: string,
+  platform: string = process.platform,
+): void {
   if (!cmd) throw new Error("claude_bin: command cannot be empty");
 
-  // If it looks like a path, apply the path guards.
-  if (cmd.includes("/")) {
-    for (const prefix of BLOCKED_BIN_PREFIXES) {
-      if (cmd.startsWith(prefix)) {
-        throw new Error(
-          `claude_bin: binary path '${cmd}' is not allowed. ` +
-            `Use a system-installed binary in /usr/local/bin or similar.`,
-        );
-      }
+  const pp = isWindows(platform) ? nodePath.win32 : nodePath.posix;
+  const looksLikeWindowsPath =
+    isWindows(platform) && (cmd.includes("\\") || /^[A-Za-z]:[\\/]/.test(cmd));
+  const isPath = cmd.includes("/") || looksLikeWindowsPath || pp.isAbsolute(cmd);
+
+  if (isPath) {
+    if (isBlockedBinPath(cmd, platform)) {
+      throw new Error(
+        `claude_bin: binary path '${cmd}' is not allowed. ` +
+          `Use a system-installed binary in a standard location.`,
+      );
     }
 
     // Reject relative paths — a cloned repo could ship an executable
-    // (e.g. ./runme or ../x) and point claude_bin at it.
-    if (!cmd.startsWith("/")) {
+    // (e.g. ./runme or ..\x.exe) and point claude_bin at it.
+    if (!pp.isAbsolute(cmd)) {
       throw new Error(
         `claude_bin: relative paths are not allowed ('${cmd}'). ` +
           `Use an absolute path to a system-installed binary.`,
@@ -285,7 +307,7 @@ function validateBinName(cmd: string): void {
 
     // The basename must still be an allowed binary, so an absolute path
     // can only ever resolve to claude/npx/node/bun.
-    const base = cmd.split("/").pop() ?? "";
+    const base = stripCmdExt(pp.basename(cmd), platform);
     if (!ALLOWED_BINS.includes(base)) {
       throw new Error(
         `claude_bin: '${cmd}' is not allowed. ` +
@@ -295,8 +317,10 @@ function validateBinName(cmd: string): void {
     return;
   }
 
-  // Simple command name — allowlist
-  if (!ALLOWED_BINS.includes(cmd)) {
+  // Simple command name — allowlist (strip a Windows extension so
+  // `claude.cmd` is accepted the same as `claude`).
+  const base = stripCmdExt(cmd, platform);
+  if (!ALLOWED_BINS.includes(base)) {
     throw new Error(
       `claude_bin: '${cmd}' is not an allowed binary. Allowed: ${ALLOWED_BINS.join(", ")}`,
     );
@@ -427,14 +451,13 @@ export function readConfigRaw(path: string): string {
   } catch {
     // No config yet — make sure the directory exists and return an empty
     // `presets:` document so the first preset can be appended cleanly.
-    const dir = path.split("/").slice(0, -1).join("/");
-    mkdirSync(dir, { recursive: true });
+    mkdirSync(dirname(path), { recursive: true });
     return "presets:\n";
   }
 }
 
 export function ensureConfigDir(explicitPath?: string): string {
-  const path = explicitPath ?? xdgConfigPath();
+  const path = explicitPath ?? userConfigPath();
   mkdirSync(dirname(path), { recursive: true });
   return path;
 }

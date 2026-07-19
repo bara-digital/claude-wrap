@@ -135,19 +135,26 @@ object is re-validated implicitly because `loadYaml` validates each file):
 - Collects all errors and throws a single multi-line message on first failure
   (no partial configs).
 
-### 3.3 Binary guard — `resolveClaudeBin()`
+### 3.3 Binary guard — `resolveClaudeBin()` (cross-platform, extends ADR 0007)
 
 The `claude_bin` setting is confined by an allowlist (`claude`, `npx`, `node`,
-`bun`) plus path guards: absolute paths only, no `/tmp` `/var/tmp` `/dev`
-prefixes, and the basename must still be an allowed binary. This prevents a cloned
-repo from pointing `claude_bin` at a malicious local executable.
+`bun`) plus path guards. Path checking uses `path.win32`/`path.posix` semantics
+(not the host OS) so Windows paths are judged correctly. Absolute paths only;
+blocked prefixes include `/tmp` `/var/tmp` `/dev` on Unix and the Windows `%TEMP%`
+location (plus any `\Temp\` directory); the basename is stripped of a Windows
+command extension (`.cmd`/`.exe`/`.ps1`) before the allowlist check, so a Windows
+`claude.cmd` is accepted like `claude`. This prevents a cloned repo from pointing
+`claude_bin` at a malicious local executable.
 
 ### 3.4 Mutation helpers
 
-`xdgConfigPath`, `hasLocalConfig`, `setDefault`, `removePreset`, `getInitTemplate`
-read/rewrite raw YAML text. `setDefault`/`removePreset` do surgical string/YAML
-edits (preserve comments where possible) and are used by the `index.ts` mutators
-(`doEdit`, `doSetDefault`, `doRemove`, `doInit`, `doConfigEdit`).
+`userConfigPath` (the old `xdgConfigPath` name remains as a back-compat alias),
+`hasLocalConfig`, `setDefault`, `removePreset`, `getInitTemplate` read/rewrite raw
+YAML text. `setDefault`/`removePreset` do surgical string/YAML edits (preserve
+comments where possible) and are used by the `index.ts` mutators (`doEdit`,
+`doSetDefault`, `doRemove`, `doInit`, `doConfigEdit`). Every platform branch lives
+in `platform.ts` (config/state paths, binary discovery, `claude_bin` guards,
+`dryRun` syntax, editor default).
 
 ---
 
@@ -285,9 +292,10 @@ Key design (ADR 0015):
 | `add.ts` | `--add` | Thin wrapper over `runSetup` (catalog wizard) — non-blocking, no launch prompt |
 | `setup.ts` | first-run / `--add` | `runSetup` guided wizard: provider catalog → masked key → write (comment-preserving) → set-default → verify (`probeEndpoint`) → launch (terminal/web); `buildPreset` is pure/tested |
 | `providers.ts` | (data) | Curated `PROVIDER_CATALOG` (Anthropic, DeepSeek, OpenRouter, Groq, Ollama, custom) + `findProvider` |
-| `doctor.ts` | `--doctor` | For each preset: resolves env, then `GET <base_url>/models` reachability + auth check; verifies `claude` binary |
-| `stats.ts` | `--stats` | Reads `XDG_STATE_HOME/claude-wrap/stats.json` (`0600`); prints per-preset counts. ⚠️ `recordLaunch` is exported but **not yet called** in `main()`, so counts are never incremented on launch |
-| `update.ts` | `--update` | Compares `VERSION` to latest GitHub Release; downloads matching `claude-wrap-<os>-<arch>`, verifies, and `rename`s over the current binary |
+| `platform.ts` | (cross-cutting) | All OS branches: `userConfigPath`/`userStatePath`, `commandExists` (`where`/`which`), `isBlockedBinPath`, `stripCmdExt`, `exportEnvLines` (cmd vs bash), `defaultEditor`, `isWsl` |
+| `doctor.ts` | `--doctor` | For each preset: resolves env, then `GET <base_url>/models` reachability + auth check; verifies `claude` binary (spawned with `shell: true` on Windows so `claude.cmd` resolves) |
+| `stats.ts` | `--stats` | Reads `userStatePath()` (`%LOCALAPPDATA%` on Windows, `XDG_STATE_HOME` on Unix), `0600`; prints per-preset counts |
+| `update.ts` | `--update` | Compares `VERSION` to latest GitHub Release; downloads matching `claude-wrap-<platform>` (+ `.exe` on Windows), verifies, and `rename`s over the current binary |
 | `completions.ts` | `--completion` | Emits zsh/bash/fish scripts; awk-based preset-name extraction |
 | `info.ts` | `--info` | Prints version, claude version, config/project paths, preset count, default, stats path |
 | `index.ts` | `--list`, `--init`, `--edit`, `--remove`, `--set-default`, `--config-edit`, `--local` | Config read/rewrite helpers (some scoped to local project config via `--local`) |
@@ -313,10 +321,10 @@ flowchart LR
 ```mermaid
 flowchart TD
     PR["PR → master"] --> CI["ci.yml\nbun install + typecheck + bun test\n+ commitlint.sh"]
-    CI --> TAG["git tag vX.Y.Z pushed"] --> REL["release.yml\nmatrix: darwin-arm64/x64, linux-x64/arm64"]
-    REL --> BUILD["bun run build → dist/claude-wrap\nrenamed per platform"]
+    CI --> TAG["git tag vX.Y.Z pushed"] --> REL["release.yml\nmatrix: darwin-arm64/x64, linux-x64/arm64, win32-x64"]
+    REL --> BUILD["bun run build → dist/claude-wrap[.exe]\nrenamed per platform"]
     BUILD --> UP["upload-artifact + softprops/action-gh-release\ngenerate_release_notes: true"]
-    UP --> RELDONE["GitHub Release + 4 binaries"]
+    UP --> RELDONE["GitHub Release + 5 binaries (incl. win32 .exe)"]
     RELDONE --> USER["users: install.sh / --update / manual"]
 ```
 
@@ -327,10 +335,11 @@ flowchart TD
 ```
 src/
   index.ts        entry: parseFlags, main dispatch, config mutators
-  config.ts       loadConfig (2-tier merge), validateConfig, resolveClaudeBin guard, YAML mutators
+  config.ts       loadConfig (2-tier merge), validateConfig, resolveClaudeBin guard (cross-platform), YAML mutators
+  platform.ts     all OS branches: paths, commandExists, claude_bin guards, dryRun syntax, editor default, isWsl
   env.ts          resolveEnv, resolveVar ($VAR), BLOCKED_ENV_VARS, .env walk-up
   picker.ts       pickPreset (flag > default > interactive)
-  launcher.ts     buildClaudeInvocation (--bare rule), execClaude, dryRun
+  launcher.ts     buildClaudeInvocation (--bare rule), execClaude (shell:true on Windows), dryRun (cmd/bash syntax)
   web.ts          resolveWebSettings, buildTtydArgs, runWeb, webDryRun, dependencyInstallHint
   add.ts          --add wrapper over runSetup (catalog wizard)
   setup.ts        runSetup (first-run/onboarding wizard), buildPreset (pure)
@@ -341,8 +350,8 @@ src/
   completions.ts  --completion zsh/bash/fish
   info.ts         --info diagnostics
   version.ts      VERSION constant (single source)
-  __tests__/      config.test, env.test, web.test, providers.test, setup.test
-docs/adr/         ADR 0001–0016 (decisions referenced inline above)
+  __tests__/      config.test, env.test, web.test, providers.test, setup.test, platform.test, launcher.test, update.test, launch-intent.test
+docs/adr/         ADR 0001–0017 (decisions referenced inline above)
 ```
 
 ---

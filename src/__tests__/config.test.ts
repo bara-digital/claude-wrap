@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { loadConfig, resolveClaudeBin, configExists, appendPreset, type Config } from "../config";
+import { loadConfig, resolveClaudeBin, configExists, appendPreset, xdgConfigPath, type Config } from "../config";
 
 let tmpDir: string;
 let origDir: string;
@@ -341,6 +341,43 @@ describe("resolveClaudeBin", () => {
       "npx",
       "@anthropic-ai/claude-code",
     ]);
+  });
+});
+
+describe("resolveClaudeBin (Windows)", () => {
+  it("allows a bare command with a Windows extension", () => {
+    expect(resolveClaudeBin("claude.cmd", "win32")).toEqual(["claude.cmd"]);
+  });
+
+  it("allows an absolute path whose basename (sans ext) is allowlisted", () => {
+    expect(
+      resolveClaudeBin("C:\\Program Files\\claude\\claude.exe", "win32"),
+    ).toEqual(["C:\\Program Files\\claude\\claude.exe"]);
+  });
+
+  it("rejects a temp-located executable", () => {
+    expect(() =>
+      resolveClaudeBin("C:\\Users\\me\\AppData\\Local\\Temp\\runme.exe", "win32"),
+    ).toThrow("is not allowed");
+  });
+
+  it("rejects a relative Windows path", () => {
+    expect(() => resolveClaudeBin("..\\x\\claude.cmd", "win32")).toThrow(
+      "relative paths",
+    );
+  });
+
+  it("rejects a basename not on the allowlist", () => {
+    expect(() => resolveClaudeBin("C:\\tools\\evil.exe", "win32")).toThrow(
+      "must be one of",
+    );
+  });
+});
+
+describe("xdgConfigPath (back-compat alias)", () => {
+  it("resolves to a presets.yaml path", () => {
+    expect(xdgConfigPath()).toContain("presets.yaml");
+    expect(xdgConfigPath()).toContain("claude-wrap");
   });
 });
 

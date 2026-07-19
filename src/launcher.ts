@@ -1,6 +1,7 @@
-import { spawnSync, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import type { Config } from "./config";
 import { resolveClaudeBin } from "./config";
+import { commandExists, isWindows, exportEnvLines } from "./platform";
 
 export interface ClaudeInvocation {
   cmd: string;
@@ -39,8 +40,7 @@ export function execClaude(
   const { cmd, finalArgs } = buildClaudeInvocation(config, args, isAnthropic, noBare);
 
   // Verify the binary exists before we detach
-  const check = spawnSync("which", [cmd], { stdio: "pipe" });
-  if (check.status !== 0) {
+  if (!commandExists(cmd)) {
     process.stderr.write(`claude-wrap: '${cmd}' not found on PATH\n`);
     process.exit(1);
   }
@@ -64,6 +64,7 @@ export function execClaude(
   const child = spawn(cmd, finalArgs, {
     env: { ...process.env, ...envVars },
     stdio: "inherit",
+    shell: isWindows(),
   });
 
   child.on("exit", (code, signal) => {
@@ -91,11 +92,7 @@ export function dryRun(
     "",
   ];
 
-  for (const [key, value] of Object.entries(envVars)) {
-    const safeKey = key.replace(/'/g, "'\\''");
-    const safeValue = value.replace(/'/g, "'\\''");
-    lines.push(`export ${safeKey}='${safeValue}'`);
-  }
+  lines.push(...exportEnvLines(envVars, process.platform));
 
   return lines.join("\n");
 }
