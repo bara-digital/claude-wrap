@@ -2,7 +2,8 @@ import { writeFileSync, existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { loadConfig, getInitTemplate, xdgConfigPath, setDefault, removePreset, hasLocalConfig } from "./config";
+import { loadConfig, getInitTemplate, xdgConfigPath, setDefault, removePreset, hasLocalConfig, configExists } from "./config";
+import { runSetup } from "./setup";
 import { pickPreset } from "./picker";
 import { execClaude, dryRun } from "./launcher";
 import { runWeb, webDryRun } from "./web";
@@ -28,7 +29,7 @@ Wrapper flags:
   --init --force         Overwrite existing config
   --local                Target local .claude-wrap.yaml instead of global config
   --list, -l             List all available presets (no launch)
-  --add                  Interactive wizard to add a new preset
+  --add                  Interactive wizard: pick a provider, add a preset
   --remove <name>        Delete a preset from config
   --edit <name>          Open config at the preset location in \$EDITOR
   --set-default <name>   Set the default preset from CLI
@@ -63,7 +64,7 @@ Config discovery:
   3. Local (merged):  walk-up from CWD for .claude-wrap.yaml
 
 Examples:
-  claude-wrap                          # Interactive picker
+  claude-wrap                          # First run → guided setup wizard
   claude-wrap --preset openai          # Use 'openai' preset
   claude-wrap -p groq -- --model llama # Forward args to claude
   claude-wrap --dry-run                # Debug preset resolution
@@ -598,6 +599,37 @@ async function main(): Promise<void> {
 
   if (flags.init) {
     doInit(flags.initForce, flags.local);
+  }
+
+  // First-run onboarding: if there's no config and this is a launch intent
+  // (no config-creating / management subcommand was given), drop straight into
+  // the guided setup wizard instead of erroring out.
+  const isLaunchIntent =
+    !flags.init &&
+    !flags.add &&
+    !flags.editPreset &&
+    !flags.removePreset &&
+    !flags.configEdit &&
+    !flags.local &&
+    !flags.list &&
+    !flags.doctor &&
+    !flags.stats &&
+    !flags.info &&
+    !flags.update &&
+    !flags.completion &&
+    !flags.setDefaultPreset;
+  if (!configExists(flags.config) && isLaunchIntent) {
+    const setup = await runSetup({
+      explicitPath: flags.config,
+      local: flags.local,
+    });
+    if (setup.presetName === null) process.exit(0);
+    if (setup.launch) {
+      flags.preset = setup.presetName;
+      if (setup.launchMode === "web") flags.web = true;
+    } else {
+      process.exit(0);
+    }
   }
 
   const config = loadConfig(flags.config);

@@ -40,12 +40,18 @@ cp dist/claude-wrap ~/.local/bin/claude-wrap
 
 ## Quick start
 
-```bash
-# Generate your config (anthropic with login by default)
-claude-wrap --init
+**First run?** Just run `claude-wrap` with no config — it opens a guided setup
+wizard that picks a provider, writes a working preset, and offers to launch
+Claude Code immediately (terminal or browser). Power users can still use
+`--init` / `--add` directly.
 
-# Add a preset interactively
-claude-wrap --add
+```bash
+# No config yet? This launches the interactive setup wizard automatically:
+claude-wrap
+
+# Or scaffold a template / add a preset by hand:
+claude-wrap --init          # template config (anthropic + login)
+claude-wrap --add           # guided wizard to add any provider
 
 # Launch Claude Code with the interactive picker
 claude-wrap
@@ -114,7 +120,7 @@ presets:
 | `--init --local` | Create project-level `.claude-wrap.yaml` |
 | `--local` | Target local config (`--config-edit --local`, etc.) |
 | `--list`, `-l` | List all presets |
-| `--add` | Interactive preset wizard |
+| `--add` | Interactive wizard: pick a provider from the catalog, add a preset |
 | `--remove <name>` | Delete a preset |
 | `--edit <name>` | Open config at preset location in `$EDITOR` |
 | `--set-default <name>` | Set default preset |
@@ -153,14 +159,21 @@ claude-wrap -p deepseek -- --add-dir /path/to/code
 
 ### Add interactively
 
+`--add` opens the same guided wizard as first-run: choose a provider from the
+built-in catalog (Anthropic, DeepSeek, OpenRouter, Groq, Ollama, or a custom
+gateway), paste your API key (masked), then optionally set it as default, verify
+it, and launch.
+
 ```bash
 $ claude-wrap --add
 
-◇  Preset name:  openai
-◇  Model:        gpt-4o
-◇  Base URL:     https://openrouter.ai/api/v1
-◇  API key:      $OPENROUTER_API_KEY
-  Preset 'openai' added
+◆  Choose a provider:  OpenRouter
+◇  Preset name:        openrouter
+◆  API key:            ********
+  Preset 'openrouter' written to ~/.config/claude-wrap/presets.yaml
+◆  Make this the default preset?  Yes
+✓  Reachable — HTTP 200
+◆  Launch now?  Terminal
 ```
 
 ### Remove a preset

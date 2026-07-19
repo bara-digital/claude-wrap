@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { loadConfig, resolveClaudeBin, type Config } from "../config";
+import { loadConfig, resolveClaudeBin, configExists, appendPreset, type Config } from "../config";
 
 let tmpDir: string;
 let origDir: string;
@@ -341,5 +341,60 @@ describe("resolveClaudeBin", () => {
       "npx",
       "@anthropic-ai/claude-code",
     ]);
+  });
+});
+
+describe("configExists", () => {
+  it("returns false when no config is present", () => {
+    process.env.XDG_CONFIG_HOME = join(tmpDir, ".config");
+    expect(configExists()).toBe(false);
+  });
+
+  it("returns true once a config file exists", () => {
+    process.env.XDG_CONFIG_HOME = join(tmpDir, ".config");
+    writeGlobalYaml(
+      "presets:\n  a:\n    base_url: https://example.com\n",
+    );
+    expect(configExists()).toBe(true);
+  });
+});
+
+describe("appendPreset", () => {
+  it("adds a preset and preserves comments elsewhere in the file", () => {
+    const raw = `# header comment
+default: anthropic
+
+presets:
+  # existing preset comment
+  anthropic:
+    base_url: https://api.anthropic.com/v1
+    login: true
+`;
+    const updated = appendPreset(raw, "openai", {
+      base_url: "https://openrouter.ai/api/v1",
+      api_key: "sk-test",
+    });
+    // comments preserved
+    expect(updated).toContain("# header comment");
+    expect(updated).toContain("# existing preset comment");
+    expect(updated).toContain("default: anthropic");
+    // new preset present
+    expect(updated).toContain("openai:");
+    expect(updated).toContain("sk-test");
+  });
+
+  it("throws if the preset name already exists", () => {
+    const raw = "presets:\n  anthropic:\n    base_url: https://x\n";
+    expect(() =>
+      appendPreset(raw, "anthropic", { base_url: "https://y" }),
+    ).toThrow("already exists");
+  });
+
+  it("creates a presets: mapping when missing", () => {
+    const updated = appendPreset("default: foo\n", "new", {
+      base_url: "https://example.com",
+    });
+    expect(updated).toContain("presets:");
+    expect(updated).toContain("new:");
   });
 });

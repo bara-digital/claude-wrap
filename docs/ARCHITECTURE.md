@@ -27,7 +27,10 @@ flowchart TD
     META -->|"--init/--add/--edit/--remove/--set-default/--config-edit"| CFGEDIT["index.ts config mutators\n+ add.ts wizard"]
     META -->|"launch path"| CFG["config.ts · loadConfig()"]
 
-    CFG --> PICK["picker.ts · pickPreset()"]
+    CFG --> FIRST{"config exists?"}
+    FIRST -->|"no + launch intent"| WIZ["setup.ts · runSetup()\nprovider catalog wizard"]
+    FIRST -->|yes| PICK["picker.ts · pickPreset()"]
+    WIZ --> PICK
     PICK --> ENV["env.ts · resolveEnv()"]
     ENV --> DECIDE{"--web?"}
 
@@ -279,7 +282,9 @@ Key design (ADR 0015):
 
 | Module | Flag(s) | What it does |
 |--------|---------|--------------|
-| `add.ts` | `--add` | Interactive `@clack/prompts` wizard → appends preset to global YAML |
+| `add.ts` | `--add` | Thin wrapper over `runSetup` (catalog wizard) — non-blocking, no launch prompt |
+| `setup.ts` | first-run / `--add` | `runSetup` guided wizard: provider catalog → masked key → write (comment-preserving) → set-default → verify (`probeEndpoint`) → launch (terminal/web); `buildPreset` is pure/tested |
+| `providers.ts` | (data) | Curated `PROVIDER_CATALOG` (Anthropic, DeepSeek, OpenRouter, Groq, Ollama, custom) + `findProvider` |
 | `doctor.ts` | `--doctor` | For each preset: resolves env, then `GET <base_url>/models` reachability + auth check; verifies `claude` binary |
 | `stats.ts` | `--stats` | Reads `XDG_STATE_HOME/claude-wrap/stats.json` (`0600`); prints per-preset counts. ⚠️ `recordLaunch` is exported but **not yet called** in `main()`, so counts are never incremented on launch |
 | `update.ts` | `--update` | Compares `VERSION` to latest GitHub Release; downloads matching `claude-wrap-<os>-<arch>`, verifies, and `rename`s over the current binary |
@@ -327,15 +332,17 @@ src/
   picker.ts       pickPreset (flag > default > interactive)
   launcher.ts     buildClaudeInvocation (--bare rule), execClaude, dryRun
   web.ts          resolveWebSettings, buildTtydArgs, runWeb, webDryRun, dependencyInstallHint
-  add.ts          --add interactive wizard
+  add.ts          --add wrapper over runSetup (catalog wizard)
+  setup.ts        runSetup (first-run/onboarding wizard), buildPreset (pure)
+  providers.ts    PROVIDER_CATALOG (Anthropic, DeepSeek, OpenRouter, Groq, Ollama, custom)
   doctor.ts       --doctor reachability/auth checks
-  stats.ts        --stats read/write (recordLaunch unused)
+  stats.ts        --stats read/write (recordLaunch wired into launch path)
   update.ts       --update self-updater
   completions.ts  --completion zsh/bash/fish
   info.ts         --info diagnostics
   version.ts      VERSION constant (single source)
-  __tests__/      config.test, env.test, web.test
-docs/adr/         ADR 0001–0015 (decisions referenced inline above)
+  __tests__/      config.test, env.test, web.test, providers.test, setup.test
+docs/adr/         ADR 0001–0016 (decisions referenced inline above)
 ```
 
 ---

@@ -1,5 +1,5 @@
-import { parse, parseDocument } from "yaml";
-import { readFileSync } from "node:fs";
+import { parse, parseDocument, YAMLMap } from "yaml";
+import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { homedir } from "node:os";
 
@@ -38,6 +38,10 @@ export function xdgConfigPath(): string {
 
 export function hasLocalConfig(): string | null {
   return walkUp(process.cwd(), ".claude-wrap.yaml");
+}
+
+export function configExists(explicitPath?: string): boolean {
+  return existsSync(explicitPath ?? xdgConfigPath());
 }
 
 function walkUp(
@@ -414,5 +418,42 @@ export function removePreset(
     doc.deleteIn(["default"]);
   }
 
+  return String(doc);
+}
+
+export function readConfigRaw(path: string): string {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    // No config yet — make sure the directory exists and return an empty
+    // `presets:` document so the first preset can be appended cleanly.
+    const dir = path.split("/").slice(0, -1).join("/");
+    mkdirSync(dir, { recursive: true });
+    return "presets:\n";
+  }
+}
+
+export function ensureConfigDir(explicitPath?: string): string {
+  const path = explicitPath ?? xdgConfigPath();
+  mkdirSync(dirname(path), { recursive: true });
+  return path;
+}
+
+// Append (or replace) a preset via the document model so comments elsewhere in
+// the file are preserved (DEEP-SCAN 1.1). Throws if the name already exists so
+// callers can prompt rather than silently overwrite.
+export function appendPreset(
+  rawYaml: string,
+  name: string,
+  preset: Preset,
+): string {
+  const doc = parseDocument(rawYaml);
+  if (!doc.hasIn(["presets"]) || doc.get("presets") == null) {
+    doc.set("presets", new YAMLMap());
+  }
+  if (doc.hasIn(["presets", name])) {
+    throw new Error(`Preset '${name}' already exists.`);
+  }
+  doc.setIn(["presets", name], preset);
   return String(doc);
 }
